@@ -246,39 +246,22 @@ DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ## QBox Resources
 
-> **⚠️ ALWAYS verify resource lists against the actual GitHub org https://github.com/Qbox-project.** The Qbox project has archived/removed many resources, and old lists are often inaccurate.
+> **⚠️ ALWAYS verify resource lists against the actual GitHub org https://github.com/Qbox-project.** Many old resource lists are inaccurate — resources have been archived or removed.
 
 ### ✅ Active & Maintained
 
-| Resource | Purpose | Status | Latest update |
-|----------|---------|--------|---------------|
-| **qbx_core** | Core framework | ✅ Stable | Active (131★, 261 forks) |
-| **qbx_vehicles** | Vehicle management API | ✅ Stable | v1.4.2 (Dec 2024) |
-| **qbx_garages** | Garage/storage (uses ox_inventory) | ✅ Stable | v1.1.4, 371 commits |
-| **qbx_spawn** | Spawn selection | ✅ Active | 35 forks |
-| **qbx_vehicleshop** | Vehicle dealerships | ✅ Active | 52 forks |
-| **qbx_storerobbery** | Store robbery system | ✅ Active | 21 forks |
-| **qbx_vehiclesales** | Player-to-player vehicle sales | ✅ Active | 16 forks |
-| **qbx_weed** | Weed growing | ✅ Active | 20 forks |
+| Resource | Purpose | Status |
+|----------|---------|--------|
+| **qbx_core** | Core framework | ✅ Stable (131★) |
+| **qbx_vehicles** | Vehicle management API | ✅ Stable (v1.4.2) |
+| **qbx_garages** | Garage/storage (uses ox_inventory) | ✅ Stable (v1.1.4) |
+| **qbx_spawn** | Spawn selection | ✅ Active |
+| **qbx_vehicleshop** | Vehicle dealerships | ✅ Active |
+| **qbx_storerobbery** | Store robbery system | ✅ Active |
+| **qbx_vehiclesales** | Player-to-player vehicle sales | ✅ Active |
+| **qbx_weed** | Weed growing | ✅ Active |
 
-### ❌ Archived / Unmaintained / Removed
-
-| Resource | Reality |
-|----------|---------|
-| **qbx_doors** | ❌ **Removed (404)** — no longer exists on GitHub |
-| **qbx_housing** | ❌ **Never existed.** `qbx_houses` is archived (unmaintained), `qbx_apartments` also archived |
-| **qbx_phone** | ❌ **Archived December 2023** — no longer maintained |
-| **qbx_stashes** | ❌ **Removed (404)** — no longer exists on GitHub |
-| **qbx_multicharacter** | ❌ **Unmaintained** — multicharacter is **built directly into qbx_core**, no separate resource needed |
-| **qbx_houses** | ⚠️ Archived, unmaintained |
-| **qbx_apartments** | ⚠️ Archived, unmaintained |
-| **qbx_traphouse** | ⚠️ Archived, not maintained |
-| **qbx_prison** | ⚠️ Archived, not maintained |
-| **qbx_vehiclefailure** | ⚠️ Archived, not maintained |
-| **qbx_tunerchip** | ⚠️ Archived, not maintained |
-| **qbx_lockpick** | ⚠️ Archived, not maintained |
-
-> **💡 Rule of thumb:** If a resource isn't in the pinned repos or its README hasn't been updated in the last year, skip it. Qbox now focuses on qbx_core and the Overextended ecosystem — many old qbx_ resources have been replaced by direct ox libraries.
+> Many old QBox resources (qbx_doors, qbx_stashes, qbx_phone, qbx_houses, etc.) have been **archived or removed** — multicharacter is now built into qbx_core, and most features use ox_lib/ox_inventory directly. Check pinned repos at https://github.com/Qbox-project before depending on any resource.
 
 ## Links
 
