@@ -211,23 +211,23 @@ gaming/fivem-script-dev/
 
 ## Task → Reference Quick Map
 
-| Tehtävä | Lataa tämä | Template |
+| Task | Load this | Template |
 |---------|-----------|----------|
-| Uusi resurssi tyhjästä | `fivem-basics.md` | `fxmanifest.lua` |
-| ESX-skripti (pelaaja, raha, job) | `esx-framework.md` | `esx-resource.lua` |
-| QBCore-skripti (Player, jobit, gangit) | `qbcore-framework.md` | `qbcore-resource.lua` |
-| QBox-skripti (moderni Ox-pohja) | `qbox-framework.md` | `qbox-resource.lua` |
-| NUI ikkuna (HTML/JS ↔ FiveM) | `fivem-nui.md` | `nui/` kansio |
-| SQL-kyselyt tietokantaan | `oxmysql.md` + `common-patterns.md` | `oxmysql-queries.lua` |
-| Tavarakauppa / pick-up / door | `common-patterns.md` + `ox-lib.md` | — |
-| Inventaario-itemit / shopit / crafting | `ox-inventory-target.md` | `inventory-hooks.lua` |
-| Admin-komento ACE-permeillä | `ace-permissions.md` | `admin-command.lua` |
-| Discord-logitus (embedit) | `ace-permissions.md` | `discord-webhook.lua` |
-| Monen frameworkin tuki | `standalone-and-bridge.md` | — |
-| Kolmannen osapuolen skriptituki | `custom-integrations.md` | — |
-| Tietoturva-auditointi | `fivem-security.md` + `error-handling.md` | — |
-| Suorituskykyoptimointi | `optimization.md` + `onesync.md` | — |
-| Serverin asetukset (server.cfg) | `server-cfg.md` | — |
+| New resource from scratch | `fivem-basics.md` | `fxmanifest.lua` |
+| ESX script (player, money, job) | `esx-framework.md` | `esx-resource.lua` |
+| QBCore script (Player, jobs, gangs) | `qbcore-framework.md` | `qbcore-resource.lua` |
+| QBox script (modern Ox-based) | `qbox-framework.md` | `qbox-resource.lua` |
+| NUI window (HTML/JS ↔ FiveM) | `fivem-nui.md` | `nui/` folder |
+| SQL queries to database | `oxmysql.md` + `common-patterns.md` | `oxmysql-queries.lua` |
+| Item shop / pick-up / door | `common-patterns.md` + `ox-lib.md` | — |
+| Inventory items / shops / crafting | `ox-inventory-target.md` | `inventory-hooks.lua` |
+| Admin command with ACE perms | `ace-permissions.md` | `admin-command.lua` |
+| Discord logging (embeds) | `ace-permissions.md` | `discord-webhook.lua` |
+| Multi-framework support | `standalone-and-bridge.md` | — |
+| Third-party script integration | `custom-integrations.md` | — |
+| Security audit | `fivem-security.md` + `error-handling.md` | — |
+| Performance optimization | `optimization.md` + `onesync.md` | — |
+| Server config (server.cfg) | `server-cfg.md` | — |
 
 ---
 
