@@ -254,21 +254,21 @@ Also: **FiveM Natives:** https://docs.fivem.net/natives/ — always check here f
 
 ## Task → Reference Quick Map
 
-| Tehtävä | Lataa |
-|---------|-------|
-| Uusi resurssi tyhjästä | `fivem-basics.md` + `templates/fxmanifest.lua` |
-| ESX-pelaajan rahat/tavarat | `esx-framework.md` |
-| QBCore-pelaajan rahat/tavarat | `qbcore-framework.md` |
+| Task | Load |
+|------|------|
+| New resource from scratch | `fivem-basics.md` + `templates/fxmanifest.lua` |
+| ESX player money/items | `esx-framework.md` |
+| QBCore player money/items | `qbcore-framework.md` |
 | QBox / qbx_core | `qbox-framework.md` |
 | ox_lib UI / callback / zone | `ox-lib.md` |
-| SQL-kysely / tietokanta | `oxmysql.md` |
+| SQL query / database | `oxmysql.md` |
 | Inventory / stash / shop | `ox-inventory-target.md` |
-| NUI-nappi → server | `fivem-nui.md` |
-| Exploit-suojaus / cheat prevention | `fivem-security.md` |
-| Admin-komento / ACE | `ace-permissions.md` |
-| Multi-framework tuki | `standalone-and-bridge.md` |
-| Quasar / paid-script integraatio | `custom-integrations.md` |
-| Optimointi / Wait(0) | `optimization.md` |
+| NUI button → server | `fivem-nui.md` |
+| Exploit protection / cheat prevention | `fivem-security.md` |
+| Admin command / ACE | `ace-permissions.md` |
+| Multi-framework support | `standalone-and-bridge.md` |
+| Quasar / paid-script integration | `custom-integrations.md` |
+| Optimisation / Wait(0) | `optimization.md` |
 | Debugging / pcall | `error-handling.md` |
 | server.cfg / game build | `server-cfg.md` |
 | OneSync / routing buckets | `onesync.md` |
