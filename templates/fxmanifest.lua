@@ -6,7 +6,7 @@
 -- Resource metadata
 fx_version 'cerulean'                   -- Always use latest version
 game 'gta5'                             -- 'gta5', 'rdr3', or 'common'
-lua54 'yes'                             -- Enable Lua 5.4 runtime
+-- lua54 'yes'                          -- REMOVED: Lua 5.4 is default since June 2025
 
 author 'Your Name'
 description 'Description of your resource'

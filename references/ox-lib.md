@@ -1,7 +1,7 @@
 # Ox Lib — UI, Callbacks, Commands, Zones, Keybinds
 
 > Standalone library for FiveM. Always prefer over custom NUI or legacy patterns.
-> Docs: https://coxdocs.dev/ox_lib
+> Docs: https://overextended.dev/docs
 
 ## Setup
 
