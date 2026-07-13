@@ -1,7 +1,7 @@
 # OxMySQL — Database Queries
 
 > SQL integration for FiveM. Server-side only. Use MariaDB over MySQL 8 for best compatibility.
-> Docs: https://coxdocs.dev/oxmysql
+> Docs: https://overextended.dev/docs/oxmysql
 
 ## Setup
 
@@ -167,6 +167,6 @@ end
 
 ## Links
 
-- Main docs: https://coxdocs.dev/oxmysql
-- Placeholders: https://coxdocs.dev/oxmysql/placeholders
-- Functions: https://coxdocs.dev/oxmysql (Functions section)
+- Main docs: https://overextended.dev/docs/oxmysql
+- Placeholders: https://overextended.dev/docs/oxmysql/placeholders
+- Functions: https://overextended.dev/docs/oxmysql (Functions section)

@@ -18,7 +18,7 @@ Standalone = FiveM natives + Ox ecosystem (ox_lib, oxmysql, ox_inventory). No ES
 ### fxmanifest
 
 ```lua
-fx_version 'cerulean'; game 'gta5'; lua54 'yes'
+fx_version 'cerulean'; game 'gta5'
 shared_scripts { '@ox_lib/init.lua' }
 server_scripts { '@oxmysql/lib/MySQL.lua', 'server/main.lua' }
 client_scripts { 'client/main.lua' }
@@ -146,7 +146,7 @@ my-script/
 ### fxmanifest
 
 ```lua
-fx_version 'cerulean'; game 'gta5'; lua54 'yes'
+fx_version 'cerulean'; game 'gta5'
 shared_scripts { '@ox_lib/init.lua', 'shared/config.lua', 'shared/bridge.lua' }
 client_scripts { 'client/main.lua' }
 server_scripts { '@oxmysql/lib/MySQL.lua', 'server/main.lua' }

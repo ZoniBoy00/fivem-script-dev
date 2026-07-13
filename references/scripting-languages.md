@@ -41,9 +41,10 @@ Lua is the dominant language in the FiveM ecosystem — used by ~95% of resource
 
 ### Lua 5.4 Changes (June 2025)
 
-- Lua 5.3 is fully deprecated
-- No longer need `lua54 'yes'` in fxmanifest — it's automatic
-- New features: `const` variables, `to-be-closed` variables, generational GC
+- Lua 5.3 is fully removed — 5.4 is the only runtime
+- `lua54 'yes'` is **no longer needed and should be removed** from new manifests — it does nothing
+- New features available: `const` variables, `to-be-closed` variables, generational GC
+- Old resources with `lua54 'yes'` still work, but it's dead config
 
 ### Lua-Specific Functions
 

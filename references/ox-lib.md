@@ -1,7 +1,7 @@
 # Ox Lib — UI, Callbacks, Commands, Zones, Keybinds
 
 > Standalone library for FiveM. Always prefer over custom NUI or legacy patterns.
-> Docs: https://overextended.dev/docs
+> Docs: https://overextended.dev/docs/ox_lib
 
 ## Setup
 
@@ -14,6 +14,8 @@ shared_scripts {
 -- Optionally preload modules
 ox_libs { 'locale', 'callback' }
 ```
+
+> Docs: https://overextended.dev/docs/ox_lib
 
 ## Interface
 
@@ -315,10 +317,10 @@ lib.locale('not_enough_money')
 
 ## Links
 
-- Main docs: https://coxdocs.dev/ox_lib
-- Interface: https://coxdocs.dev/ox_lib/Modules/Interface
-- Callback (client): https://coxdocs.dev/ox_lib/Modules/Callback/Client
-- Callback (server): https://coxdocs.dev/ox_lib/Modules/Callback/Server
-- AddCommand: https://coxdocs.dev/ox_lib/Modules/AddCommand/Server
-- Zones: https://coxdocs.dev/ox_lib/Modules/Zones/Shared
-- AddKeybind: https://coxdocs.dev/ox_lib/Modules/AddKeybind/Client
+- Main docs: https://overextended.dev/docs/ox_lib
+- Interface: https://overextended.dev/docs/ox_lib/Modules/Interface
+- Callback (client): https://overextended.dev/docs/ox_lib/Modules/Callback/Client
+- Callback (server): https://overextended.dev/docs/ox_lib/Modules/Callback/Server
+- AddCommand: https://overextended.dev/docs/ox_lib/Modules/AddCommand/Server
+- Zones: https://overextended.dev/docs/ox_lib/Modules/Zones/Shared
+- AddKeybind: https://overextended.dev/docs/ox_lib/Modules/AddKeybind/Client

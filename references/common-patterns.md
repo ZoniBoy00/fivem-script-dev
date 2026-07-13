@@ -250,3 +250,5 @@ end)
 - [ ] Loop wait times are appropriate (not all `Wait(0)`)
 - [ ] Player object validated before use
 - [ ] ox_inventory space checked before adding items
+- [ ] Export calls wrapped in `pcall` or guarded with `GetResourceState()` check
+- [ ] `RegisterNetEvent` called once at top level, never inside a loop or thread

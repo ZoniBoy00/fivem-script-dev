@@ -246,22 +246,39 @@ DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ## QBox Resources
 
-> **⚠️ ALWAYS verify resource lists against the actual GitHub org https://github.com/Qbox-project.** Many old resource lists are inaccurate — resources have been archived or removed.
+> **⚠️ Tarkista aina GitHubista https://github.com/Qbox-project ennen kuin luotat mihinkään resurssilistaan.** Qbox-projekti on arkistoinut/poistanut useita resursseja eikä kaikki vanhat listat pidä paikkaansa.
 
-### ✅ Active & Maintained
+### ✅ Aktiiviset & Ylläpidetyt
 
-| Resource | Purpose | Status |
-|----------|---------|--------|
-| **qbx_core** | Core framework | ✅ Stable (131★) |
-| **qbx_vehicles** | Vehicle management API | ✅ Stable (v1.4.2) |
-| **qbx_garages** | Garage/storage (uses ox_inventory) | ✅ Stable (v1.1.4) |
-| **qbx_spawn** | Spawn selection | ✅ Active |
-| **qbx_vehicleshop** | Vehicle dealerships | ✅ Active |
-| **qbx_storerobbery** | Store robbery system | ✅ Active |
-| **qbx_vehiclesales** | Player-to-player vehicle sales | ✅ Active |
-| **qbx_weed** | Weed growing | ✅ Active |
+| Resource | Purpose | Status | Viimeisin päivitys |
+|----------|---------|--------|-------------------|
+| **qbx_core** | Core framework | ✅ Stable | Aktiivinen (131★, 261 forks) |
+| **qbx_vehicles** | Vehicle management API | ✅ Stable | v1.4.2 (Dec 2024) |
+| **qbx_garages** | Garage/storage (uses ox_inventory) | ✅ Stable | v1.1.4, 371 commits |
+| **qbx_spawn** | Spawn selection | ✅ Active | 35 forks |
+| **qbx_vehicleshop** | Vehicle dealerships | ✅ Active | 52 forks |
+| **qbx_storerobbery** | Store robbery system | ✅ Active | 21 forks |
+| **qbx_vehiclesales** | Player-to-player vehicle sales | ✅ Active | 16 forks |
+| **qbx_weed** | Weed growing | ✅ Active | 20 forks |
 
-> Many old QBox resources (qbx_doors, qbx_stashes, qbx_phone, qbx_houses, etc.) have been **archived or removed** — multicharacter is now built into qbx_core, and most features use ox_lib/ox_inventory directly. Check pinned repos at https://github.com/Qbox-project before depending on any resource.
+### ❌ Arkistoidut / Ei-Ylläpidetyt / Poistetut
+
+| Resource | Totuus |
+|----------|--------|
+| **qbx_doors** | ❌ **Poistettu (404)** — ei ole enää olemassa GitHubissa |
+| **qbx_housing** | ❌ **Ei ole koskaan ollut olemassa.** `qbx_houses` on arkistoitu (unmaintained), `qbx_apartments` myös arkistoitu |
+| **qbx_phone** | ❌ **Arkistoitu joulukuussa 2023** — ei enää ylläpidossa |
+| **qbx_stashes** | ❌ **Poistettu (404)** — ei ole enää olemassa GitHubissa |
+| **qbx_multicharacter** | ❌ **Unmaintained** — mutticharacter on **rakennettu suoraan qbx_coreen**, erillistä resurssia ei tarvita |
+| **qbx_houses** | ⚠️ Arkistoitu, unmaintained |
+| **qbx_apartments** | ⚠️ Arkistoitu, unmaintained |
+| **qbx_traphouse** | ⚠️ Arkistoitu, not maintained |
+| **qbx_prison** | ⚠️ Arkistoitu, not maintained |
+| **qbx_vehiclefailure** | ⚠️ Arkistoitu, not maintained |
+| **qbx_tunerchip** | ⚠️ Arkistoitu, not maintained |
+| **qbx_lockpick** | ⚠️ Arkistoitu, not maintained |
+
+> **💡 Nyrkkisääntö:** Jos resurssia ei löydy pinned-repojen joukosta tai README ei ole päivitetty viimeisen vuoden aikana, se kannattaa unohtaa. Qbox keskittyy nykyään qbx_coreen ja Overextended-ekosysteemiin — monet vanhat qbx_-resurssit on korvattu suorilla ox-kirjastoilla.
 
 ## Links
 

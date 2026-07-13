@@ -1,21 +1,14 @@
 ---
 name: fivem-script-dev
 description: "FiveM (cfx.re) resource development. ESX, QBCore, QBox, Ox ecosystem, NUI, security, optimization. Method selection guide per framework. Custom integration wrappers for paid/third-party scripts. Load ONE reference at a time."
-version: 2.3.1
+version: 2.4.0
 author: ZoniBoy00
 license: MIT
 ---
 
 # FiveM Script Development
 
-> **🤖 AI DIRECTIVE:** You are a FiveM Expert AI. Follow this decision tree:
-> 1. **Simple/quick lookup** (e.g., "what's the ESX function for X?") → SKILL.md alone has enough context
-> 2. **Writing code** → LOAD the matching `references/<topic>.md` and `templates/<type>.lua` before generating code. Ask the user to paste them if you can't load files.
-> 3. **Security review or debugging** → Load `references/fivem-security.md` and `references/error-handling.md`
-> 4. **Never hallucinate natives** — use https://docs.fivem.net/natives/ to verify parameter order and return types
-> 5. **Never mix framework conventions** — don't use `QBCore.Functions.GetPlayer` in an ESX resource, etc.
-> 6. **Prioritize the Ox ecosystem** (ox_lib, ox_inventory, oxmysql, ox_target) over custom implementations
-> 7. **Always validate client data server-side** — the client is never trusted
+> **🤖 AI DIRECTIVE:** You are a FiveM Expert AI. When writing code, ALWAYS reference the rules in `references/<topic>.md` and use the architecture patterns found in `templates/` to ensure modern, secure, and optimized Lua. Never hallucinate natives — use https://docs.fivem.net/natives/ to verify parameter order and return types. Never mix framework conventions (e.g., don't use `QBCore.Functions.GetPlayer` in an ESX resource). Prioritize the Ox ecosystem (ox_lib, ox_inventory, oxmysql, ox_target) over custom implementations. Always validate client data server-side — the client is never trusted.
 
 > **TOKEN EFFICIENCY:** Load ONLY `references/<topic>.md` matching the current task. Never load multiple references unless explicitly needed. Templates load only when writing scaffolds.
 
@@ -53,7 +46,7 @@ license: MIT
 | Targeting | Third-party / ox_target | **qb-target** (default) / ox_target optional | ox_target |
 | Status | Maintained (10k+ servers) | Maintained | Active development |
 
-> **💡 QBCore note:** ox_lib notifications (`lib.notify`) and TextUI (`lib.showTextUI`) work fine with QBCore. But `ox_inventory` does NOT replace `qb-inventory` without a bridge (e.g., `qb-ox_inventory` bridge). QBCore defaults to its own notify/DrawText3D unless you explicitly add ox_lib. See `references/custom-integrations.md` for bridge detection.
+> **💡 QBCore note:** ox_lib notifications (`lib.notify`) and TextUI (`lib.showTextUI`) work fine with QBCore. But `ox_inventory` does NOT replace `qb-inventory` without a bridge resource. QBCore defaults to its own notify/DrawText3D unless you explicitly add ox_lib.
 
 ### Client vs Server
 
@@ -127,22 +120,22 @@ QBCore resource?
 │         qb-inventory exports (inventory)
 │         qb-target exports (targeting)
 │         ox_lib CAN be used for notify/textUI if server has it
-│         ⚠️ ox_inventory needs a bridge (qb-ox_inventory) — NOT default
+│         ⚠️ ox_inventory needs a bridge — NOT default
 │
-├── NO → ESX or QBox or Standalone?
-│   ├── ESX → ox_lib notify + showTextUI
-│   │         ox_inventory or ESX built-in
-│   │         ox_target or third-party
-│   │
-│   ├── QBox → ox_lib notify + showTextUI
-│   │         ox_inventory (default!)
-│   │         ox_target (default!)
-│   │
-│   └── Standalone (no framework) → ox_lib notify + showTextUI
-│             ox_inventory (if installed)
-│             ox_target (if installed)
-│             Manual player management (see references/standalone-and-bridge.md)
-│
+└── NO → ESX or QBox?
+    ├── ESX → ox_lib notify + showTextUI
+    │         ox_inventory or ESX built-in
+    │         ox_target or third-party
+    │
+    └── QBox → ox_lib notify + showTextUI
+               ox_inventory (default!)
+               ox_target (default!)
+
+Standalone (no framework)?
+    → ox_lib + ox_inventory + oxmysql only
+    → load references/standalone-and-bridge.md
+    → ox_lib for all UI, ox_inventory for items/money
+
 Unknown / custom systems?
     → load references/custom-integrations.md
     → Use the NotifyPlayer()/AddItem() wrapper functions
@@ -209,28 +202,6 @@ gaming/fivem-script-dev/
 
 ---
 
-## Task → Reference Quick Map
-
-| Task | Load this | Template |
-|---------|-----------|----------|
-| New resource from scratch | `fivem-basics.md` | `fxmanifest.lua` |
-| ESX script (player, money, job) | `esx-framework.md` | `esx-resource.lua` |
-| QBCore script (Player, jobs, gangs) | `qbcore-framework.md` | `qbcore-resource.lua` |
-| QBox script (modern Ox-based) | `qbox-framework.md` | `qbox-resource.lua` |
-| NUI window (HTML/JS ↔ FiveM) | `fivem-nui.md` | `nui/` folder |
-| SQL queries to database | `oxmysql.md` + `common-patterns.md` | `oxmysql-queries.lua` |
-| Item shop / pick-up / door | `common-patterns.md` + `ox-lib.md` | — |
-| Inventory items / shops / crafting | `ox-inventory-target.md` | `inventory-hooks.lua` |
-| Admin command with ACE perms | `ace-permissions.md` | `admin-command.lua` |
-| Discord logging (embeds) | `ace-permissions.md` | `discord-webhook.lua` |
-| Multi-framework support | `standalone-and-bridge.md` | — |
-| Third-party script integration | `custom-integrations.md` | — |
-| Security audit | `fivem-security.md` + `error-handling.md` | — |
-| Performance optimization | `optimization.md` + `onesync.md` | — |
-| Server config (server.cfg) | `server-cfg.md` | — |
-
----
-
 ## How to Use — Load ONE reference at a time
 
 1. **General FiveM** → `references/fivem-basics.md`
@@ -275,9 +246,32 @@ Also: **FiveM Natives:** https://docs.fivem.net/natives/ — always check here f
 12. **Oversized network payloads** — Send only what's needed.
 13. **Wrong manifest language** — `fxmanifest.lua` is ALWAYS Lua; scripts can be `.lua`, `.js`, or `.net.dll`.
 14. **Trusting stale resource lists** — Online framework tables (QBox resources, ESX status, etc.) are often wrong. ALWAYS verify from GitHub: check pinned repos, last commit date, and whether the repo actually exists (404 check). Many QBox resources have been archived/removed. Verify at https://github.com/Qbox-project before citing any list.
-15. **No rate limiting on server events** — Players can spam-trigger server events. Always add cooldowns per source using `GetGameTimer()` or a simple cooldown table.
-16. **Exports without pcall protection** — A missing export crashes the whole resource. Always wrap export calls in `pcall()` or check `GetResourceState()` first.
-17. **`lua54 'yes'` is no longer needed** — Lua 5.4 is the default runtime since June 2025. The `lua54 'yes'` directive in fxmanifest is ignored. Remove it to avoid confusion.
+15. **Calling exports without pcall** — If the target resource isn't started, an unguarded `exports.ox_inventory:AddItem()` will crash the entire resource. Wrap export calls in `pcall()` or check `GetResourceState('ox_inventory') == 'started'` first.
+16. **Spamming RegisterNetEvent in loops** — Registering events inside a loop or CreateThread creates duplicate listeners. Register events at the top level, once, outside any loop.
+17. **`lua54 'yes'` is now redundant** — As of June 2025, Lua 5.4 is the only runtime. Remove `lua54 'yes'` from new manifests to avoid confusion (it no longer does anything).
+
+---
+
+## Task → Reference Quick Map
+
+| Tehtävä | Lataa |
+|---------|-------|
+| Uusi resurssi tyhjästä | `fivem-basics.md` + `templates/fxmanifest.lua` |
+| ESX-pelaajan rahat/tavarat | `esx-framework.md` |
+| QBCore-pelaajan rahat/tavarat | `qbcore-framework.md` |
+| QBox / qbx_core | `qbox-framework.md` |
+| ox_lib UI / callback / zone | `ox-lib.md` |
+| SQL-kysely / tietokanta | `oxmysql.md` |
+| Inventory / stash / shop | `ox-inventory-target.md` |
+| NUI-nappi → server | `fivem-nui.md` |
+| Exploit-suojaus / cheat prevention | `fivem-security.md` |
+| Admin-komento / ACE | `ace-permissions.md` |
+| Multi-framework tuki | `standalone-and-bridge.md` |
+| Quasar / paid-script integraatio | `custom-integrations.md` |
+| Optimointi / Wait(0) | `optimization.md` |
+| Debugging / pcall | `error-handling.md` |
+| server.cfg / game build | `server-cfg.md` |
+| OneSync / routing buckets | `onesync.md` |
 
 ---
 
@@ -288,5 +282,6 @@ Also: **FiveM Natives:** https://docs.fivem.net/natives/ — always check here f
 - ESX: https://docs.esx-framework.org/
 - QBCore: https://docs.qbcore.org/qbcore-documentation
 - QBox: https://docs.qbox.re/
-- Ox Lib / Overextended: https://overextended.dev/docs
+- Ox Lib: https://overextended.dev/docs/ox_lib
+- Overextended: https://overextended.dev/docs
 - Performance guide: https://forum.cfx.re/t/best-practice-improve-your-resource-performance/105509
