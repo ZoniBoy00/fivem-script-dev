@@ -15,7 +15,6 @@ Config.DiscordLog = {
 
 -- RATE LIMITER
 local LastLogTime = 0
-local PendingQueue = {}
 
 -- CORE: Send embed to Discord
 function SendDiscordEmbed(embedData, webhookOverride)
@@ -24,6 +23,13 @@ function SendDiscordEmbed(embedData, webhookOverride)
         print('[DiscordLog] No webhook URL configured')
         return
     end
+    
+    local now = GetGameTimer()
+    if now - LastLogTime < Config.DiscordLog.RateLimit then
+        print('[DiscordLog] Rate limited — message skipped')
+        return
+    end
+    LastLogTime = now
     
     local payload = {
         username = Config.DiscordLog.BotName,

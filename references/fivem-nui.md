@@ -57,15 +57,15 @@ SetNuiFocus(false, false)
 ```lua
 -- Register NUI callback (AJAX from UI)
 RegisterNuiCallback('buyItem', function(data, cb)
-    -- data = the JSON body sent from UI
+    -- ⚠️ data comes from the client and can be tampered with.
+    -- The server must re-validate everything (item, price, quantity, money).
     local itemName = data.itemName
-    local quantity = data.quantity
+    local quantity = tonumber(data.quantity) or 1
     
-    -- Process purchase (validate server-side!)
     TriggerServerEvent('shop:server:purchase', itemName, quantity)
     
-    -- MUST always return callback — empty {} is fine
-    cb({ success = true, message = 'Item purchased!' })
+    -- Don't claim success here — the server will send its own feedback.
+    cb({ received = true })
 end)
 
 -- Register callback without args
@@ -222,6 +222,23 @@ RegisterNuiCallback('name', function(data, cb) cb({}) end)
 - CEF remote debugging: **http://localhost:13172/** (Chrome DevTools)
 - In-game: Open F8 console → type `nui_devTools` (requires developer mode)
 - Use `console.log()` in JS for client-side debugging
+
+## Modern Build Pipelines
+
+For complex UIs, plain HTML/CSS/JS can become hard to maintain. Many production resources use a bundler:
+
+- **Vite / webpack** for hot reload, TypeScript, and component frameworks (React, Vue, Svelte).
+- The bundled output (usually `dist/` or `build/`) is what you point `ui_page` to.
+- Keep the final bundle small; NUI runs inside the game's CEF and large JS payloads can cause hitches.
+
+Example `fxmanifest.lua` with a bundled UI:
+
+```lua
+ui_page 'dist/index.html'
+files { 'dist/**/*' }
+```
+
+You still communicate with FiveM via `SendNUIMessage` and `fetch(.../callbackName)` exactly as shown above.
 
 ## Common Patterns
 

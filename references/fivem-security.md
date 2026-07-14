@@ -16,7 +16,7 @@ The client is fully compromised. Every action affecting game state, economy, or 
 ## Event Security
 
 ```lua
-RegisterNetEvent('shop:server:purchase', function(itemId, price)
+RegisterNetEvent('shop:server:purchase', function(itemId, price, quantity)
     -- 1. Check invoking resource (block cross-resource triggers)
     if GetInvokingResource() then return end
     
@@ -24,21 +24,33 @@ RegisterNetEvent('shop:server:purchase', function(itemId, price)
     local xPlayer = ESX.GetPlayerFromId(source)
     if not xPlayer then return end
     
-    -- 3. Validate the request
-    local item = Config.ShopItems[itemId]
-    if not item then return end                    -- Invalid item
-    if price ~= item.price then return end          -- Price tampered
-    if item.quantity < 1 then return end            -- Out of stock
+    -- 3. Validate quantity from client
+    quantity = tonumber(quantity) or 1
+    if quantity < 1 or quantity > 10 then return end  -- Sanity limit
     
-    -- 4. Check player has funds
-    if xPlayer.getMoney() < price then
+    -- 4. Validate the request from SERVER config
+    local item = Config.ShopItems[itemId]
+    if not item then return end                         -- Invalid item
+    if price ~= item.price then return end               -- Price tampered
+    if item.quantity < quantity then return end          -- Not enough stock
+    
+    local totalPrice = item.price * quantity
+    
+    -- 5. Check player has funds
+    if xPlayer.getMoney() < totalPrice then
         TriggerClientEvent('esx:showNotification', source, 'Not enough money!')
         return
     end
     
-    -- 5. Server-side execution (never trust client to do this)
-    xPlayer.removeMoney(price)
-    xPlayer.addInventoryItem(itemId, 1)
+    -- 6. Check inventory space
+    if not xPlayer.canCarryItem(itemId, quantity) then
+        TriggerClientEvent('esx:showNotification', source, 'Inventory full!')
+        return
+    end
+    
+    -- 7. Server-side execution (never trust client to do this)
+    xPlayer.removeMoney(totalPrice)
+    xPlayer.addInventoryItem(itemId, quantity)
 end)
 ```
 
@@ -137,6 +149,12 @@ RegisterNetEvent('myres:server:payPlayer', function(targetId, amount)
     local sourcePlayer = ESX.GetPlayerFromId(source)
     local targetPlayer = ESX.GetPlayerFromId(targetId)
     if not sourcePlayer or not targetPlayer then return end
+    if source == targetId then return end  -- Don't pay yourself
+    
+    -- Optional but recommended: ensure players are near each other
+    local sourceCoords = GetEntityCoords(GetPlayerPed(source))
+    local targetCoords = GetEntityCoords(GetPlayerPed(targetId))
+    if #(sourceCoords - targetCoords) > 5.0 then return end
     
     -- Server-side money check and transfer
     if sourcePlayer.getMoney() >= amount then
@@ -155,7 +173,6 @@ RegisterNetEvent('sensitive:server:action', function()
     
     -- Only allow from same resource or whitelisted resources
     if resource ~= GetCurrentResourceName() and resource ~= 'trusted-resource' then
-        CancelEvent()
         return
     end
     
@@ -191,10 +208,12 @@ add_ace group.admin command.car deny -- Restrict specific command
 add_principal identifier.steam:xxx group.admin  -- Assign by Steam ID
 
 # Advanced protection
-sv_disableClientScripthook true      -- Block mod menus
-sets sv_enhancedHostSupport 1        -- DDoS protection
 sv_authMinTrust 5                    -- Minimum trust level
+set sv_enhancedHostSupport 1          -- Enhanced host/network support
 set sv_forceGameBuild 3258            -- Force specific game build
+
+# Note: There is no server convar that reliably blocks client-side mod menus.
+# Use a dedicated anti-cheat resource if you need protection against mod menus.
 ```
 
 ## Links

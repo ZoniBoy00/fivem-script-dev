@@ -6,6 +6,8 @@
 
 QBox's goal is improving upon QBCore while maintaining backwards compatibility. It utilizes [Overextended resources](https://github.com/CommunityOx) (ox_lib, ox_inventory, ox_target, oxmysql) instead of maintaining in-house alternatives.
 
+> **⚠️ API Stability:** QBox is under active development and its APIs (especially `require 'qbx_core'`, bridge layers, and item config locations) can change between releases. Always verify the current docs at https://docs.qbox.re/ before relying on any specific pattern.
+
 ### Key Differences from QBCore
 
 | Feature | QBCore | QBox |

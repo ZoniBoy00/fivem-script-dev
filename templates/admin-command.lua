@@ -12,11 +12,6 @@ Config.AdminCommand = {
     LogChannel = 123456789,                  -- Discord webhook ID
 }
 
--- SHARED: Command Registration
-RegisterCommand('mycommand', function(source, args, rawCommand)
-    -- Rate limiting (server-side enforced)
-end, true)  -- true = restricted to players only
-
 -- SERVER
 local Cooldowns = {}
 

@@ -1,7 +1,7 @@
 ---
 name: fivem-script-dev
 description: "FiveM (cfx.re) resource development. ESX, QBCore, QBox, Ox ecosystem, NUI, security, optimization. Method selection guide per framework. Custom integration wrappers for paid/third-party scripts. Load ONE reference at a time."
-version: 2.4.0
+version: 2.5.0
 author: ZoniBoy00
 license: MIT
 ---

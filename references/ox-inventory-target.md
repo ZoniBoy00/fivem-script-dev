@@ -21,11 +21,14 @@ dependencies {
 ### Key Exports
 
 ```lua
--- Check item count
+-- Check item count (client-side — returns local player's count)
 local count = exports.ox_inventory:Search('count', 'water')
 
--- Check item count with metadata
+-- Check item count with metadata (client-side)
 local count = exports.ox_inventory:Search('count', 'weapon_pistol', {serial = 'ABC123'})
+
+-- Server-side: pass source as the FIRST argument
+local count = exports.ox_inventory:Search(source, 'count', 'water')
 
 -- Add item(s)
 exports.ox_inventory:AddItem(source, 'water', 5)
@@ -179,6 +182,25 @@ exports.ox_target:addModel('prop_tool_chest_01', {
         end,
     },
 })
+
+-- Server: validate the loot request
+RegisterNetEvent('loot:search')
+AddEventHandler('loot:search', function(entityNetId)
+    if GetInvokingResource() then return end
+    
+    local playerPed = GetPlayerPed(source)
+    if not playerPed then return end
+    
+    local entity = NetworkGetEntityFromNetworkId(entityNetId)
+    if not entity or not DoesEntityExist(entity) then return end
+    
+    -- Distance check
+    local playerCoords = GetEntityCoords(playerPed)
+    local entityCoords = GetEntityCoords(entity)
+    if #(playerCoords - entityCoords) > 3.0 then return end
+    
+    -- ADAPT: give loot, mark searched, cooldown, etc.
+end)
 
 -- Add target to multiple models
 exports.ox_target:addModel({ 'prop_tool_chest_01', 'prop_box_ammo01a' }, options)

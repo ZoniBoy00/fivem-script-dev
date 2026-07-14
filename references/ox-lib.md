@@ -303,11 +303,11 @@ local locales = {
     shop_title = 'Shop',
 }
 
--- shared/locales/fi.lua
+-- shared/locales/custom.lua (example of adding another locale)
 local locales = {
-    item_bought = 'Ostettu!',
-    not_enough_money = 'Ei tarpeeksi rahaa!',
-    shop_title = 'Kauppa',
+    item_bought = 'Item purchased!',
+    not_enough_money = 'Not enough money!',
+    shop_title = 'Shop',
 }
 
 -- In code

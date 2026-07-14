@@ -64,6 +64,18 @@ return {
 }
 ]]
 
+-- Server handler for the 'Eat' button above
+RegisterNetEvent('myresource:eatFood')
+AddEventHandler('myresource:eatFood', function(metadata)
+    if GetInvokingResource() then return end
+    
+    local xPlayer = ESX.GetPlayerFromId(source)  -- ADAPT: your framework
+    if not xPlayer then return end
+    
+    -- ADAPT: validate the item is in player's inventory using metadata if needed
+    -- ADAPT: apply hunger/thirst effects, remove item if ox_inventory doesn't consume it
+end)
+
 -- 2. SHOP DEFINITION (ox_inventory/data/shops.lua)
 --[[
 return {

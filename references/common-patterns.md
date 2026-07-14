@@ -2,6 +2,8 @@
 
 > Battle-tested patterns using the **Ox ecosystem** (ox_lib, oxmysql, ox_inventory, ox_target). Framework-specific parts marked with `-- ADAPT:`.
 
+> **🔒 Security note:** These examples place non-sensitive coordinates (shops, doors, duty points) in shared `Config`. If you build drug spots, hidden stashes, heist locations, or similar, store their coordinates **server-side only** and send them to the client only when the player is nearby.
+
 ---
 
 ## 1. Item Shop (ox_lib + ox_inventory)
@@ -39,18 +41,27 @@ lib.zones.box({
 ### Server
 ```lua
 lib.callback.register('myres:buyItem', function(source, itemName)
-    -- ADAPT: get player via your framework
+    -- 1. Get player
+    local xPlayer = ESX.GetPlayerFromId(source)  -- ADAPT: use your framework
+    if not xPlayer then return { success = false, error = 'Player not found' } end
+
+    -- 2. Validate item and price from SERVER config (never trust client price)
     local itemData = nil
     for _, v in ipairs(Config.ShopItems) do if v.name == itemName then itemData = v; break end end
     if not itemData then return { success = false, error = 'Invalid item' } end
 
-    -- ADAPT: money check
-    -- ADAPT: use ox_inventory or framework method
+    -- 3. Validate player can afford it and remove money server-side
+    if xPlayer.getMoney() < itemData.price then
+        return { success = false, error = 'Not enough money' }
+    end
+    xPlayer.removeMoney(itemData.price)
+
+    -- 4. Validate inventory space
     if not exports.ox_inventory:CanCarryItem(source, itemName, 1) then
         return { success = false, error = 'Inventory full' }
     end
 
-    -- ADAPT: remove money + add item
+    -- 5. Give item
     exports.ox_inventory:AddItem(source, itemName, 1)
     return { success = true, message = itemData.label .. ' purchased!' }
 end)
@@ -85,10 +96,23 @@ CreateThread(function() for _, d in ipairs(Config.Doors) do doorStates[d.id] = d
 RegisterNetEvent('myres:toggleDoor')
 AddEventHandler('myres:toggleDoor', function(doorId)
     if GetInvokingResource() then return end
-    -- ADAPT: job check
-    local coords = GetEntityCoords(GetPlayerPed(source))
+    
+    local xPlayer = ESX.GetPlayerFromId(source)  -- ADAPT: use your framework
+    if not xPlayer then return end
+    
+    -- Validate door exists
     local doorConfig = nil; for _, d in ipairs(Config.Doors) do if d.id == doorId then doorConfig = d; break end end
-    if not doorConfig or #(coords - doorConfig.coords) > 5.0 then return end  -- Distance check
+    if not doorConfig then return end
+    
+    -- Job check (e.g. only police can toggle police doors)
+    if doorConfig.job and xPlayer.getJob().name ~= doorConfig.job then
+        return
+    end
+    
+    -- Distance check
+    local coords = GetEntityCoords(GetPlayerPed(source))
+    if #(coords - doorConfig.coords) > 5.0 then return end
+    
     doorStates[doorId] = not doorStates[doorId]
     TriggerClientEvent('myres:syncDoor', -1, doorId, doorStates[doorId])
 end)
@@ -99,20 +123,21 @@ end)
 ## 3. Vehicle Spawner
 
 ```lua
--- Client
+-- Server
 lib.addCommand('car', { help = 'Spawn vehicle', params = { { name = 'model', type = 'string' } } }, function(source, args)
-    local result = lib.callback.await('myres:spawnVehicle', false, args.model or 'adder')
-    if not result.success then return end
     local model = args.model or 'adder'
-    RequestModel(model); while not HasModelLoaded(model) do Wait(100) end
-    local coords = GetEntityCoords(PlayerPedId()); local veh = CreateVehicle(model, coords.x+2, coords.y+2, coords.z, GetEntityHeading(PlayerPedId()), true, false)
-    SetPedIntoVehicle(PlayerPedId(), veh, -1); SetModelAsNoLongerNeeded(model)
+    -- ADAPT: permission + money check here
+    TriggerClientEvent('myres:client:spawnVehicle', source, model)
 end)
 
--- Server
-lib.callback.register('myres:spawnVehicle', function(source, model)
-    -- ADAPT: framework money check + permission check
-    return { success = true }
+-- Client
+RegisterNetEvent('myres:client:spawnVehicle')
+AddEventHandler('myres:client:spawnVehicle', function(model)
+    RequestModel(model); while not HasModelLoaded(model) do Wait(100) end
+    local coords = GetEntityCoords(PlayerPedId())
+    local veh = CreateVehicle(model, coords.x + 2, coords.y + 2, coords.z, GetEntityHeading(PlayerPedId()), true, false)
+    SetPedIntoVehicle(PlayerPedId(), veh, -1)
+    SetModelAsNoLongerNeeded(model)
 end)
 ```
 
@@ -185,6 +210,18 @@ for itemName in pairs(Config.UsableItems) do
     end)
 end
 
+-- Client reports that the usage animation finished
+RegisterNetEvent('myres:itemUsed')
+AddEventHandler('myres:itemUsed', function(itemName)
+    if GetInvokingResource() then return end
+    
+    -- Validate the item is actually registered as usable
+    if not Config.UsableItems[itemName] then return end
+    
+    -- ADAPT: apply effects (hunger/thirst/stress), remove item if needed
+    -- Note: ox_inventory usually consumes the item automatically if configured with consume = 1
+end)
+
 -- Client
 RegisterNetEvent('myres:useItem')
 AddEventHandler('myres:useItem', function(itemName)
@@ -229,6 +266,21 @@ end)
 -- Server
 lib.callback.register('myres:toggleDuty', function(source)
     if GetInvokingResource() then return false end
+    
+    local xPlayer = ESX.GetPlayerFromId(source)  -- ADAPT: use your framework
+    if not xPlayer then return false end
+    
+    -- Find nearest duty location and validate job
+    local playerCoords = GetEntityCoords(GetPlayerPed(source))
+    local validLocation = nil
+    for _, loc in ipairs(Config.DutyLocations) do
+        if #(playerCoords - loc.coords) < 5.0 and xPlayer.getJob().name == loc.job then
+            validLocation = loc
+            break
+        end
+    end
+    if not validLocation then return false end
+    
     -- ADAPT: toggle duty via framework
     return true
 end)

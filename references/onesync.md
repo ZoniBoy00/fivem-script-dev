@@ -108,26 +108,26 @@ SetEntityAsNoLongerNeeded(entity)
 
 ```lua
 -- When a player enters a vehicle, the vehicle should be in their bucket
+-- Server-side: iterate players instead of using client-only entity pools
 CreateThread(function()
     while true do
-        Wait(1000)
+        Wait(5000)
         
-        for _, vehicle in ipairs(GetGamePool('CVehicle')) do
-            local driver = GetPedInVehicleSeat(vehicle, -1)
-            
-            if DoesEntityExist(driver) and IsPedAPlayer(driver) then
-                local driverSource = NetworkGetEntityOwner(vehicle)
-                local driverBucket = GetPlayerRoutingBucket(driverSource)
-                local vehicleBucket = GetEntityRoutingBucket(vehicle)
-                
-                -- Migrate vehicle to driver's bucket if different
-                if vehicleBucket ~= driverBucket then
-                    SetEntityRoutingBucket(vehicle, driverBucket)
+        for _, source in ipairs(GetPlayers()) do
+            local ped = GetPlayerPed(source)
+            if ped and ped ~= 0 then
+                local vehicle = GetVehiclePedIsIn(ped, false)
+                if vehicle and vehicle ~= 0 then
+                    local playerBucket = GetPlayerRoutingBucket(source)
+                    local vehicleBucket = GetEntityRoutingBucket(vehicle)
+                    
+                    -- Migrate vehicle to driver's bucket if different
+                    if vehicleBucket ~= playerBucket then
+                        SetEntityRoutingBucket(vehicle, playerBucket)
+                    end
                 end
             end
         end
-        
-        Wait(5000)
     end
 end)
 ```

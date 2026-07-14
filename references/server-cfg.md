@@ -42,17 +42,20 @@ sv_licenseKey "YOUR_CFX_KEY"
 
 ```cfg
 # Controls game build version (affects packfiles, DLCs, ymaps)
-sv_enforceGameBuild 2944       # Latest (Dec 2024+)
+sv_enforceGameBuild 3258       # Example build — always use the newest your assets support
+# Build numbers are GTA Online title updates. Common examples:
+# 3258+ = various 2024–2025 builds
 # 2944 = GTA Online Danny & The Veteran
 # 2802 = Bottom Dollar Bounties
 # 2699 = Agents of Sabotage
 # 2545 = Chop Shop
 # 2372 = San Andreas Mercenaries
-# 2189 = Drug Wars (most stable for modding)
+# 2189 = Drug Wars (popular for modding)
 # 2060 = Criminal Enterprises
 # 1604 = Cayo Perico (legacy)
 
 # If using map mods, match the build to the mod requirements
+# Check the current latest build at https://docs.fivem.net/docs/server-manual/server-commands/#sv_enforcegamebuild
 ```
 
 ### OneSync
@@ -217,7 +220,8 @@ sv_afkTimer 600                # AFK kick after seconds (0 = disabled)
 ## Voice
 
 ```cfg
-# Voice chat (built-in)
+# Voice chat (built-in) — largely deprecated
+# Most servers use pma-voice or a similar dedicated voice resource instead.
 set voice_useNativeAudio true
 set voice_useSendingRangeOnly true
 set voice_defaultVolume 1.0
@@ -243,7 +247,7 @@ sv_licenseKey "YOUR_KEY_HERE"
 set steam_webApiKey "YOUR_STEAM_KEY"
 
 # --- Game ---
-sv_enforceGameBuild 2944
+sv_enforceGameBuild 3258
 onesync on
 onesync_forceMigrate true
 

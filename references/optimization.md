@@ -112,6 +112,7 @@ end)
 
 ```lua
 -- Cache PlayerPedId (built-in, faster than GetPlayerPed(-1))
+-- Note: PlayerPedId can change after respawn. Refresh the cache if your logic runs across long sessions.
 local playerPed = PlayerPedId()
 
 Citizen.CreateThread(function()
@@ -180,14 +181,15 @@ TriggerServerEvent('shop:server:purchase', itemId, quantity)
 
 ```lua
 -- Multiple queries in one transaction (faster than separate queries)
-MySQL.transaction({
-    'UPDATE bank SET balance = balance - 100 WHERE owner = ?',
-    'UPDATE shop SET stock = stock - 1 WHERE item_id = ?',
-}, {playerId, itemId}, function(success)
-    if not success then
-        print('Transaction failed — rollback')
-    end
-end)
+-- Use per-query values table; do NOT pass a flat parameter array.
+local success = MySQL.transaction.await({
+    { query = 'UPDATE bank SET balance = balance - 100 WHERE owner = ?', values = { playerId } },
+    { query = 'UPDATE shop SET stock = stock - 1 WHERE item_id = ?', values = { itemId } },
+})
+
+if not success then
+    print('Transaction failed — rollback')
+end
 ```
 
 ### Profile Resources

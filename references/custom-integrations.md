@@ -38,6 +38,16 @@ function DetectSystems()
 end
 ```
 
+Run detection after resources have started so GetResourceState is accurate.
+```lua
+local Systems = {}
+
+CreateThread(function()
+    Wait(1000) -- let dependencies initialize
+    Systems = DetectSystems()
+end)
+```
+
 ## Notify Integration
 
 ```lua
@@ -91,7 +101,7 @@ end
 
 function HasItem(source, item, amount)
     amount = amount or 1
-    if Systems.inventory == 'ox_inventory' then return exports.ox_inventory:Search('count', item, source) >= amount
+    if Systems.inventory == 'ox_inventory' then return exports.ox_inventory:Search(source, 'count', item) >= amount
     elseif Systems.inventory == 'qs-inventory' then return exports['qs-inventory']:GetItemCount(source, item) >= amount
     end
     return false

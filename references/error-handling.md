@@ -146,6 +146,32 @@ end
 
 ---
 
+## Safe Export Calls
+
+Calling exports from other resources can crash your resource if the target isn't started. Always guard them:
+
+```lua
+local function safeExport(resource, exportName, ...)
+    if GetResourceState(resource) ~= 'started' then
+        print(('[ERROR] Resource %s is not started'):format(resource))
+        return nil
+    end
+    
+    local ok, result = pcall(exports[resource][exportName], exports[resource], ...)
+    if not ok then
+        print(('[ERROR] Export %s:%s failed: %s'):format(resource, exportName, tostring(result)))
+        return nil
+    end
+    
+    return result
+end
+
+-- Example
+local count = safeExport('ox_inventory', 'Search', source, 'count', 'water')
+```
+
+---
+
 ## Debugging Techniques
 
 ### F8 Console (Client)

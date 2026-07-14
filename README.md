@@ -35,7 +35,7 @@ gaming/fivem-script-dev/
 │   ├── error-handling.md             pcall, debugging, defensive code
 │   ├── other-resources.md            Fivemanage, state bags
 │   └── optimization.md               Variable wait, caching, events
-└── templates/                         ← 8 production-ready templates
+└── templates/                         ← 9 production-ready templates
     ├── fxmanifest.lua                 Universal manifest template
     ├── nui/                           Full NUI scaffold (HTML/CSS/JS)
     ├── esx-resource.lua               ESX resource scaffold
@@ -126,7 +126,7 @@ Common patterns (shops, doors, vehicles) are written with adapters for ESX, QBCo
 - [ESX Framework](https://docs.esx-framework.org/)
 - [QBCore Documentation](https://docs.qbcore.org/qbcore-documentation)
 - [QBox Documentation](https://docs.qbox.re/)
-- [Ox Lib Docs](https://coxdocs.dev/ox_lib)
+- [Ox Lib Docs](https://overextended.dev/docs/ox_lib)
 - [Overextended Docs](https://overextended.dev/docs)
 - [FiveM Performance Guide](https://forum.cfx.re/t/best-practice-improve-your-resource-performance/105509)
 - [FiveM Native UI (NUI)](https://docs.fivem.net/docs/game-references/nui/)

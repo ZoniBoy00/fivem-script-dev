@@ -133,7 +133,7 @@ Format: `{resourceName}:{side}:{pastTenseEventName}`
 
 ```lua
 RegisterNetEvent('myresource:client:eventName', function()
-    -- Block if triggered from wrong side (e.g. server event triggered by client)
+    -- Block if triggered by another resource (nil = legitimate client net event)
     if GetInvokingResource() then return end
     
     -- Block if source isn't valid
