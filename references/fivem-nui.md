@@ -269,6 +269,40 @@ RegisterNuiCallback('sensitiveAction', function(data, cb)
 end)
 ```
 
+## Blackscreen Fix (CEF opaque compositing layer)
+
+**Symptom:** NUI loads (callbacks work, logs show messages) but the screen is black — the UI is "there" but invisible. Classic FiveM/CEF issue.
+
+**Root cause:** CEF (the Chromium wrapper FiveM uses) composites a **fallback opaque layer** behind the UI. If `html`/`body` don't have an explicit transparent background, or the CSS forces a new compositing layer (`backdrop-filter`, heavy `box-shadow`, large `border-radius`), CEF draws a solid black rounded rectangle as the fallback instead of letting the game render through.
+
+**Fixes (apply in this order):**
+
+1. **Explicit transparent background on html/body** — tells CEF to render the game beneath the page:
+```css
+html, body {
+    background: transparent !important;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+}
+```
+
+2. **Remove/replace `backdrop-filter`** — it forces an opaque compositing layer. Use a semi-transparent RGBA card color instead:
+```css
+/* ❌ AVOID — forces opaque fallback layer */
+.card { background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); }
+
+/* ✅ USE — plain semi-transparent color, no filter */
+.card { background: rgba(0, 0, 0, 0.45); }
+```
+
+3. **Reduce heavy `box-shadow` and large `border-radius`** — both can trigger new compositing layers in CEF. Prefer flat/border-based styling, or keep shadows subtle.
+
+4. If the black rectangle persists **only around a rounded element**, it's the fallback layer showing through — flatten the radii or remove the shadow on that element.
+
+**Verification:** after the fix, open the UI — the game world should be visible through any transparent areas. Debug with `nui_devTools` (F8 → `nui_devTools`) and check the Computed styles: `html`/`body` must show `background: rgba(0, 0, 0, 0)`.
+
 ## Pitfalls
 
 1. **Must always `cb({})`** — Every NUI callback MUST return a response or the request will time out
