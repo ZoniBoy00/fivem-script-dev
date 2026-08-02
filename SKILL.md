@@ -1,7 +1,7 @@
 ---
 name: fivem-script-dev
 description: "FiveM (cfx.re) resource development. ESX, QBCore, QBox, Ox ecosystem, NUI, security, optimization. Method selection guide per framework. Custom integration wrappers for paid/third-party scripts. Load ONE reference at a time."
-version: 2.5.1
+version: 2.5.2
 author: ZoniBoy00
 license: MIT
 ---
@@ -223,7 +223,6 @@ gaming/fivem-script-dev/
 17. **Error handling** → `references/error-handling.md`
 18. **Optimization** → `references/optimization.md`
 19. **Template needed** → load from `templates/`
-20. **Ox Lib architecture / internals** → `references/ox-lib-architecture.md`
 
 **🔑 Token tip:** SKILL.md is ~6KB. Each reference is 5-25KB. Load ONLY the one you need. If you need a second, close the first. Never load all references.
 
@@ -254,12 +253,6 @@ Also: **FiveM Natives:** https://docs.fivem.net/natives/ — always check here f
 
 ---
 
-## FiveM → HELIX Conversion
-
-HELIX is an UE5-based multiplayer sandbox by Hypersonic Laboratories ($7M funding), a direct competitor to FiveM. **QBCore works natively** on HELIX. Load `references/helix-conversion.md` when discussing HELIX platform, porting FiveM scripts, or planning z_lib/z_target/z_inventory/z_doorlock development.
-
-**HELIX principle for ZoniBoy00 scripts:** z_lib is STANDALONE — does NOT use vox_lib. All z-scripts (z_target, z_inventory, z_doorlock, z-storage, z-crafting, etc.) depend ONLY on z_lib + native HELIX APIs. vox_lib is a reference for API patterns only, never a dependency. Byte Vault has full specs at `/opt/Byte Vault/Projektit/HELIX/`.
-
 ## Task → Reference Quick Map
 
 | Task | Load |
@@ -280,7 +273,6 @@ HELIX is an UE5-based multiplayer sandbox by Hypersonic Laboratories ($7M fundin
 | Debugging / pcall | `error-handling.md` |
 | server.cfg / game build | `server-cfg.md` |
 | OneSync / routing buckets | `onesync.md` |
-| **HELIX / FiveM → HELIX conversion** | **`helix-conversion.md`** |
 
 ---
 
