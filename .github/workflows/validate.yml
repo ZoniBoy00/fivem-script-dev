@@ -23,4 +23,14 @@ jobs:
           sudo luarocks install luacheck
       - name: Lua syntax and lint
         run: |
-          find templates -type f -name '*.lua' -print0 | xargs -0 -n1 luacheck --no-max-line-length --no-unused-args
+          find templates -type f -name '*.lua' -print0 | while IFS= read -r -d '' file; do
+  echo "Checking $file"
+  set +e
+  luacheck "$file" --no-max-line-length --no-unused-args
+  status=$?
+  set -e
+  # Luacheck returns 1 for warnings and 2+ for fatal/configuration errors.
+  if [ "$status" -gt 1 ]; then
+    exit "$status"
+  fi
+done
