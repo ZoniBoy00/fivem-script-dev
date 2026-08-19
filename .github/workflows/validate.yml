@@ -13,7 +13,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -oE 'references/[A-Za-z0-9._/-]+\.md|templates/[A-Za-z0-9._/-]+' README.md SKILL.md | while read -r path; do
+          grep -ohE 'references/[A-Za-z0-9._/-]+\.md|templates/[A-Za-z0-9._/-]+' README.md SKILL.md | while read -r path; do
             test -e "$path" || { echo "Missing referenced path: $path"; exit 1; }
           done
       - name: Install Lua tools
