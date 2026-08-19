@@ -1,0 +1,26 @@
+name: Validate skill pack
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check referenced files
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -oE 'references/[A-Za-z0-9._/-]+\.md|templates/[A-Za-z0-9._/-]+' README.md SKILL.md | while read -r path; do
+            test -e "$path" || { echo "Missing referenced path: $path"; exit 1; }
+          done
+      - name: Install Lua tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 luarocks
+          sudo luarocks install luacheck
+      - name: Lua syntax and lint
+        run: |
+          find templates -type f -name '*.lua' -print0 | xargs -0 -n1 luacheck --no-max-line-length --no-unused-args
