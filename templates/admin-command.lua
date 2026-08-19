@@ -9,7 +9,7 @@ Config = Config or {}
 Config.AdminCommand = {
     Permission = 'command.mycommand',       -- ACE permission
     Cooldown = 3000,                         -- ms between uses
-    LogChannel = 123456789,                  -- Discord webhook ID
+    WebhookConvar = 'myresource_discord_webhook', -- Set server-side; never commit secrets
 }
 
 -- SERVER
@@ -60,19 +60,24 @@ RegisterCommand('mycommand', function(source, args, rawCommand)
     -- export: local playerData = exports.qbx_core:GetPlayer(source)
     
     -- 5. Execute command logic
-    pcall(function()
+    local ok, err = pcall(function()
         -- YOUR COMMAND LOGIC HERE
         
         -- ADAPT: Send feedback
         -- TriggerClientEvent('chat:addMessage', source, { args = { 'System', 'Command executed!' } })
     end)
+    if not ok then
+        print(('[mycommand] command failed: %s'):format(err))
+        return
+    end
     
     -- 6. Log to console + optional Discord
     print(('[mycommand] %s (%s) executed command'):format(playerName, steamId))
     
     -- Discord webhook (optional)
-    if Config.AdminCommand.LogChannel then
-        PerformHttpRequest(('https://discord.com/api/webhooks/%d'):format(Config.AdminCommand.LogChannel), function(err, text, headers)
+    local webhook = GetConvar(Config.AdminCommand.WebhookConvar, '')
+    if webhook ~= '' then
+        PerformHttpRequest(webhook, function(err, text, headers)
             if err ~= 204 then
                 print(('[mycommand] Discord log failed: %s'):format(err or 'unknown'))
             end
@@ -91,5 +96,6 @@ end)
 --[[
   USAGE EXAMPLES:
   - Add ACE in server.cfg: add_ace group.admin command.mycommand allow
+  - Set webhook server-side: setr myresource_discord_webhook https://discord.com/api/webhooks/<id>/<token>
   - In-game: /mycommand [args]
 ]]
