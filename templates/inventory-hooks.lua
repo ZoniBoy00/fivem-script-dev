@@ -176,25 +176,33 @@ Config.Crafting = {
 -- Server: Craft handler
 RegisterNetEvent('myresource:craftItem', function(recipeName)
     local src = source
+    if not src or type(recipeName) ~= 'string' then return end
     local recipe = Config.Crafting.recipes[recipeName]
     if not recipe then return end
     
     -- Check requirements
     for _, req in ipairs(recipe.requirements) do
-        local count = exports.ox_inventory:Search('count', req.name)
+        local count = exports.ox_inventory:Search(src, 'count', req.name)
         if count < req.count then
             TriggerClientEvent('ox_lib:notify', src, { type = 'error', description = 'Missing materials' })
             return
         end
     end
     
-    -- Remove materials
+    -- Check capacity before changing inventory.
+    if not exports.ox_inventory:CanCarryItem(src, recipe.result.name, recipe.result.count) then return end
+
+    -- Verify every removal. High-value crafting should use a transaction or rollback.
     for _, req in ipairs(recipe.requirements) do
-        exports.ox_inventory:RemoveItem(src, req.name, req.count)
+        local removed = exports.ox_inventory:RemoveItem(src, req.name, req.count)
+        if not removed then return end
     end
-    
-    -- Give result
-    exports.ox_inventory:AddItem(src, recipe.result.name, recipe.result.count)
+
+    local added = exports.ox_inventory:AddItem(src, recipe.result.name, recipe.result.count)
+    if not added then
+        -- Restore removed materials in production code.
+        return
+    end
     
     TriggerClientEvent('ox_lib:notify', src, { type = 'success', description = 'Crafted ' .. recipe.label })
 end)
