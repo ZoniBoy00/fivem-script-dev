@@ -1,6 +1,6 @@
 # FiveM Script Development — AI Context Pack
 
-> **A comprehensive, battle-tested knowledge pack for AI-assisted FiveM script development.**  
+> **A structured knowledge pack for AI-assisted FiveM script development.**  
 > Supports ESX, QBCore, QBox, and the Ox ecosystem with production-ready templates and security best practices.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -133,6 +133,18 @@ Common patterns (shops, doors, vehicles) are written with adapters for ESX, QBCo
 - [FiveM ACE Permissions](https://docs.fivem.net/docs/server-manual/permissions/)
 
 ---
+
+## Validation and Scope
+
+This repository provides guidance and scaffolding; templates still require adaptation to the server's framework, resource versions, OneSync configuration, and inventory setup. Do not treat examples as drop-in security guarantees.
+
+Before shipping generated code:
+
+1. Verify current native and dependency APIs against official documentation.
+2. Test server-side validation with malformed, replayed, distant, and rate-limited requests.
+3. Run the repository's Lua lint and reference-file validation checks.
+4. Test inventory and money changes for capacity failures, disconnects, and duplicate requests.
+5. Keep webhooks and other secrets in server-side convars, never in committed files.
 
 ## 🤝 Contributing
 
