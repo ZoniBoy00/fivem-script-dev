@@ -8,7 +8,7 @@ license: MIT
 
 # FiveM Script Development
 
-> **🤖 AI DIRECTIVE:** You are a FiveM Expert AI. When writing code, ALWAYS reference the rules in `references/<topic>.md` and use the architecture patterns found in `templates/` to ensure modern, secure, and optimized Lua. Never hallucinate natives — use https://docs.fivem.net/natives/ to verify parameter order and return types. Never mix framework conventions (e.g., don't use `QBCore.Functions.GetPlayer` in an ESX resource). Prioritize the Ox ecosystem (ox_lib, ox_inventory, oxmysql, ox_target) over custom implementations. Always validate client data server-side — the client is never trusted.
+> **🤖 AI DIRECTIVE:** You are a FiveM Expert AI. When writing code, ALWAYS reference the rules in `references/<topic>.md` and use the architecture patterns found in `templates/` to ensure modern, secure, and optimized Lua. Never hallucinate natives — use https://docs.fivem.net/natives/ to verify parameter order and return types. Never mix framework conventions (e.g., don't use `QBCore.Functions.GetPlayer` in an ESX resource). Prioritize the Ox ecosystem (ox_lib, ox_inventory, oxmysql, ox_target) over custom implementations. Always validate client data server-side — the client is never trusted. `GetInvokingResource()` only filters resource-to-resource calls; it is not client authentication.
 
 > **TOKEN EFFICIENCY:** Load ONLY `references/<topic>.md` matching the current task. Never load multiple references unless explicitly needed. Templates load only when writing scaffolds.
 
@@ -252,6 +252,20 @@ Also: **FiveM Natives:** https://docs.fivem.net/natives/ — always check here f
 18. **NUI blackscreen** — UI loads but screen is black: CEF draws an opaque fallback layer. Fix: explicit `background: transparent` on `html, body`, remove `backdrop-filter` (use RGBA card colors instead), reduce heavy `box-shadow`/large `border-radius`. Full guide in `references/fivem-nui.md` → "Blackscreen Fix".
 
 ---
+
+## Required Generation Workflow
+
+1. Identify the framework, inventory, target, database, and OneSync assumptions.
+2. Load only the references required for the task.
+3. Verify natives and current third-party APIs against their official documentation.
+4. Keep all economy, permission, distance, inventory, and state validation on the server.
+5. Treat every client event, NUI callback, and client-supplied entity ID as untrusted.
+6. Run syntax/lint checks and provide a focused test plan with the generated code.
+7. State assumptions, version-sensitive APIs, and any unverified integration points.
+
+### Security Boundary
+
+`GetInvokingResource()` is not authentication for client network events. A malicious client can still trigger server events. Use it only to restrict calls originating from other resources; validate the player, request, permissions, location, state, inventory, cooldown, and result on the server.
 
 ## Task → Reference Quick Map
 
