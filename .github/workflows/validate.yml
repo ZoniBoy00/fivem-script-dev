@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           find templates -type f -name '*.lua' -print0 \
-            | xargs -0 -r -n1 lua5.4 -p
+            | xargs -0 -r -n1 luac5.4 -p
       - name: Lua lint report
         shell: bash
         run: |
