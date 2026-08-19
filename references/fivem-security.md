@@ -10,10 +10,13 @@ The client is fully compromised. Every action affecting game state, economy, or 
 2. **Never Trust Parameters** — Validate ALL arguments from client (don't blindly accept amounts)
 3. **Distance Checks** — Always verify distance server-side before allowing interaction
 4. **Rate Limiting** — Prevent event spamming with cooldowns
-5. **Event Validation** — Use `GetInvokingResource()` to restrict event origin
+5. **Event Validation** — Use `GetInvokingResource()` only for resource-to-resource calls; it does not authenticate clients
 6. **Server-Side Transactions** — Never handle money/items client-side
 
 ## Event Security
+
+> Every server network event can be called by a compromised client. `GetInvokingResource()` is not client authentication. Always validate identity, permissions, state, distance, inventory, and cooldown on the server.
+
 
 ```lua
 RegisterNetEvent('shop:server:purchase', function(itemId, price, quantity)
@@ -71,7 +74,8 @@ RegisterNetEvent('myres:server:loot', function(npcNetId, lootType)
     
     -- Server-side distance validation
     if #(playerCoords - npcCoords) > 5.0 then
-        DropPlayer(source, 'Distance cheat detected')
+        print(('[myres] suspicious distance request from %s'):format(source))
+        return
         return
     end
     
