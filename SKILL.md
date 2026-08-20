@@ -1,18 +1,18 @@
 ---
 name: fivem-script-dev
 description: "FiveM (cfx.re) resource development. ESX, QBCore, QBox, Ox ecosystem, NUI, security, optimization. Method selection guide per framework. Custom integration wrappers for paid/third-party scripts. Load ONE reference at a time."
-version: 2.5.2
+version: 2.6.0
 author: ZoniBoy00
 license: MIT
 ---
 
 # FiveM Script Development
 
-> **🤖 AI DIRECTIVE:** You are a FiveM Expert AI. When writing code, ALWAYS reference the rules in `references/<topic>.md` and use the architecture patterns found in `templates/` to ensure modern, secure, and optimized Lua. Never hallucinate natives — use https://docs.fivem.net/natives/ to verify parameter order and return types. Never mix framework conventions (e.g., don't use `QBCore.Functions.GetPlayer` in an ESX resource). Prioritize the Ox ecosystem (ox_lib, ox_inventory, oxmysql, ox_target) over custom implementations. Always validate client data server-side — the client is never trusted. `GetInvokingResource()` only filters resource-to-resource calls; it is not client authentication.
+> **🤖 AI DIRECTIVE:** You are a FiveM Expert AI. When writing code, ALWAYS reference the rules in `references/<topic>.md` and use the architecture patterns found in `templates/` to ensure modern, secure, and optimized Lua. Never hallucinate natives — use https://docs.fivem.net/natives/ to verify parameter order and return types. Never mix framework conventions (e.g., don't use `QBCore.Functions.GetPlayer` in an ESX resource). Prefer the Ox ecosystem when the server already uses it and the feature is supported, but preserve the framework's native default when no compatible Ox bridge or dependency is present. Always validate client data server-side — the client is never trusted. `GetInvokingResource()` only filters resource-to-resource calls; it is not client authentication.
 
 > **TOKEN EFFICIENCY:** Load ONLY `references/<topic>.md` matching the current task. Never load multiple references unless explicitly needed. Templates load only when writing scaffolds.
 
-> **OX FIRST:** Always prefer Ox ecosystem (ox_lib, ox_inventory, oxmysql, ox_target) over custom implementations. No custom DrawText3D when `lib.showTextUI()` exists. No custom callbacks when `lib.callback` works. No custom inventory when `ox_inventory` is available. Ox is lighter, more secure, and community standard.
+> **OX FIRST, NOT OX BLIND:** Prefer Ox ecosystem (ox_lib, ox_inventory, oxmysql, ox_target) when it is installed and compatible with the selected framework. No custom DrawText3D when `lib.showTextUI()` is available. No custom callbacks when `lib.callback` works. Do not replace `qb-inventory`, `qb-target`, or framework-native APIs without a documented bridge and an explicit compatibility decision.
 
 ---
 
@@ -27,6 +27,19 @@ license: MIT
 - Questions about event handling, exports, callbacks, or state bags
 - Debugging server-side (server console) or client-side (F8 console) errors
 - Setting up database queries (MySQL/MariaDB with oxmysql)
+
+---
+
+## Documentation and Version Verification
+
+Use `references/documentation-and-versioning.md` when a task depends on current framework, resource, native, or game-build behavior. Before citing or implementing a version-sensitive API:
+
+1. Check the official documentation for the relevant framework or resource.
+2. Check the upstream repository's current branch, latest commit date, release/tag, and archive status.
+3. Confirm the resource exists and the referenced path or export is not a 404.
+4. Record the assumption when the server's exact version is unknown; do not present an unverified API as current fact.
+
+This applies to ESX, QBCore, QBox, ox_lib, ox_inventory, ox_target, oxmysql, OneSync, and FiveM natives — not only QBox resources. Update the relevant reference when a breaking upstream change is confirmed.
 
 ---
 
@@ -171,6 +184,7 @@ gaming/fivem-script-dev/
 │   ├── server-cfg.md                   → Convars, game builds, commands
 │   ├── error-handling.md               → pcall, debugging, defensive code
 │   ├── other-resources.md              → Fivemanage, state bags
+│   ├── documentation-and-versioning.md → Official-source and freshness checks
 │   └── optimization.md                 → Variable wait, caching, events
 └── templates/                          ← Load ONLY when writing scaffold
     ├── fxmanifest.lua                  → Manifest template
@@ -198,7 +212,7 @@ gaming/fivem-script-dev/
 | Manual distance loops | `lib.zones.box/poly/sphere` | Event-driven, no polling |
 | Custom keybinds | `lib.addKeybind()` | Built-in settings UI |
 
-**Rule:** If Ox has a built-in for it, use Ox. Only fall back to framework/custom when Ox doesn't cover the use case.
+**Rule:** If the server has a compatible Ox installation and Ox covers the use case, use Ox. Otherwise use the selected framework's native API or a documented bridge. Compatibility beats ideology.
 
 ---
 
@@ -222,7 +236,8 @@ gaming/fivem-script-dev/
 16. **Server.cfg** → `references/server-cfg.md`
 17. **Error handling** → `references/error-handling.md`
 18. **Optimization** → `references/optimization.md`
-19. **Template needed** → load from `templates/`
+19. **Documentation/version check** → `references/documentation-and-versioning.md`
+20. **Template needed** → load from `templates/`
 
 **🔑 Token tip:** SKILL.md is ~6KB. Each reference is 5-25KB. Load ONLY the one you need. If you need a second, close the first. Never load all references.
 
@@ -250,6 +265,7 @@ Also: **FiveM Natives:** https://docs.fivem.net/natives/ — always check here f
 16. **Spamming RegisterNetEvent in loops** — Registering events inside a loop or CreateThread creates duplicate listeners. Register events at the top level, once, outside any loop.
 17. **`lua54 'yes'` is now redundant** — As of June 2025, Lua 5.4 is the only runtime. Remove `lua54 'yes'` from new manifests to avoid confusion (it no longer does anything).
 18. **NUI blackscreen** — UI loads but screen is black: CEF draws an opaque fallback layer. Fix: explicit `background: transparent` on `html, body`, remove `backdrop-filter` (use RGBA card colors instead), reduce heavy `box-shadow`/large `border-radius`. Full guide in `references/fivem-nui.md` → "Blackscreen Fix".
+19. **Assuming an API is current** — Framework and resource APIs change. Check `references/documentation-and-versioning.md` before relying on an export, native signature, resource list, or game-build behavior.
 
 ---
 
@@ -287,6 +303,7 @@ Also: **FiveM Natives:** https://docs.fivem.net/natives/ — always check here f
 | Debugging / pcall | `error-handling.md` |
 | server.cfg / game build | `server-cfg.md` |
 | OneSync / routing buckets | `onesync.md` |
+| Current API, resource, or game-build behavior | `documentation-and-versioning.md` |
 
 ---
 

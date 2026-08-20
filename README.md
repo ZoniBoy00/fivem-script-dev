@@ -14,7 +14,7 @@
 ```
 gaming/fivem-script-dev/
 ├── SKILL.md                           ← Master reference + usage guide
-├── references/                        ← 20 focused reference documents
+├── references/                        ← 21 focused reference documents
 │   ├── fivem-basics.md               Resource structure, manifest, events
 │   ├── lua-for-fivem.md              Lua best practices for FiveM
 │   ├── scripting-languages.md        Lua vs JS vs C# comparison
@@ -34,6 +34,7 @@ gaming/fivem-script-dev/
 │   ├── server-cfg.md                 Convars, game builds, commands
 │   ├── error-handling.md             pcall, debugging, defensive code
 │   ├── other-resources.md            Fivemanage, state bags
+│   ├── documentation-and-versioning.md Official-source and freshness checks
 │   └── optimization.md               Variable wait, caching, events
 └── templates/                         ← 9 production-ready templates
     ├── fxmanifest.lua                 Universal manifest template
@@ -98,7 +99,7 @@ cp templates/fxmanifest.lua my_new_resource/
 Every action that affects game state, economy, or other players **must** be validated on the server. The client is fully compromised.
 
 ### 🦊 Ox First
-Prefer the Ox ecosystem (ox_lib, ox_inventory, oxmysql, ox_target) over custom implementations. Ox is lighter, more secure, and the community standard.
+Prefer the Ox ecosystem (ox_lib, ox_inventory, oxmysql, ox_target) when it is installed and compatible with the selected framework. Do not replace framework-native APIs without a documented bridge.
 
 ### ⚡ Performance by Default
 Variable wait intervals, event-driven zones, state bags over event spam — every reference document includes performance considerations.
@@ -141,10 +142,11 @@ This repository provides guidance and scaffolding; templates still require adapt
 Before shipping generated code:
 
 1. Verify current native and dependency APIs against official documentation.
-2. Test server-side validation with malformed, replayed, distant, and rate-limited requests.
-3. Run the repository's Lua lint and reference-file validation checks.
-4. Test inventory and money changes for capacity failures, disconnects, and duplicate requests.
-5. Keep webhooks and other secrets in server-side convars, never in committed files.
+2. Check the upstream repository's current branch, release/commit date, archive status, and referenced exports or paths.
+3. Test server-side validation with malformed, replayed, distant, and rate-limited requests.
+4. Run the repository's Lua lint and reference-file validation checks.
+5. Test inventory and money changes for capacity failures, disconnects, and duplicate requests.
+6. Keep webhooks and other secrets in server-side convars, never in committed files.
 
 ## 🤝 Contributing
 

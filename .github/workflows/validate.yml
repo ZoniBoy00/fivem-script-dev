@@ -34,7 +34,7 @@ jobs:
         run: |
           set -uo pipefail
           failed=0
-          find templates -type f -name '*.lua' -print0 | while IFS= read -r -d '' file; do
+          while IFS= read -r -d '' file; do
             echo "Checking $file"
             luacheck "$file" --no-max-line-length --no-unused-args || {
               status=$?
@@ -42,7 +42,8 @@ jobs:
               # manifest directives, and placeholder sections. Syntax is gated above.
               if [ "$status" -gt 1 ]; then
                 echo "::warning::Luacheck fatal/configuration result ($status) in $file"
+                failed=1
               fi
             }
-          done
+          done < <(find templates -type f -name '*.lua' -print0)
           exit "$failed"
