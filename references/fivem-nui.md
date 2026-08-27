@@ -166,8 +166,8 @@ function buyItem(itemName) {
     })
     .then(resp => resp.json())
     .then(resp => {
-        if (resp.success) {
-            console.log('Purchased:', resp.message);
+        if (resp.received) {
+            console.log('Purchase request sent to the server');
         }
     })
     .catch(error => console.error('Error:', error));
@@ -229,7 +229,7 @@ RegisterNUICallback('name', function(data, cb) cb({}) end)
 
 ## Developer Tools
 
-- In-game: Open F8 console → type `nui_devTools` (requires `sv_devMode true`)
+- In-game: open the F8 console and type `nui_devTools` from a client in developer mode
 - Use `console.log()` in JS for client-side debugging
 
 ## Modern Build Pipelines

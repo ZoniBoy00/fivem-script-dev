@@ -230,7 +230,7 @@ end)
 - If no server error → ask for F8 logs
 - `Citizen.Trace('debug message')` — print without newline
 - `print('msg')` — with newline
-- NUI debugging: use F8 → `nui_devTools` with `sv_devMode true`.
+- NUI debugging: use F8 → `nui_devTools` from a client in developer mode.
 
 ## Key Patterns
 

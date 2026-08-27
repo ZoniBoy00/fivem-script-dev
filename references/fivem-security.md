@@ -174,12 +174,14 @@ end)
 RegisterNetEvent('sensitive:server:action', function()
     local resource = GetInvokingResource()
     
-    -- Only allow from same resource or whitelisted resources
-    if resource ~= GetCurrentResourceName() and resource ~= 'trusted-resource' then
+    -- Client-triggered network events have no invoking resource (resource is nil).
+    -- Only apply this guard to server-to-server calls.
+    if resource and resource ~= GetCurrentResourceName() and resource ~= 'trusted-resource' then
         return
     end
     
-    -- Process
+    -- A nil resource is a normal client request; validate source and all data here.
+    -- Process only after server-side permission, state, distance, and input checks.
 end)
 ```
 
@@ -211,7 +213,7 @@ add_ace group.admin command.car deny -- Restrict specific command
 add_principal identifier.steam:xxx group.admin  -- Assign by Steam ID
 
 # Authentication and build settings
-sv_authMinTrust 5                    -- Minimum trust level
+sv_authMinTrust 2                    -- Increase only if you accept possible player lockouts
 # Set only after verifying the required build for your assets.
 # sv_enforceGameBuild <verified-build-number>
 

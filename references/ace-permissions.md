@@ -125,10 +125,10 @@ list_principals
 
 1. **Order matters** — Create group + ACE before adding principals
 2. **Case-sensitive** — `Command.kick` ≠ `command.kick`
-3. **Server restart required** — `refresh` doesn't reload ACE
+3. **Live versus config changes** — `add_ace`/`remove_ace` apply when entered in the server console; changes in `server.cfg` require a server restart or configuration re-read. `refresh` only reloads resources.
 4. **Permissions only work server-side** — Can't check directly on client
 
 ## Links
 
-- FiveM ACE docs: https://docs.fivem.net/docs/server-manual/server-commands/#access-control-commands
+- FiveM ACE overview: https://docs.fivem.net/docs/developers/server-security/
 - ACE commands: https://docs.fivem.net/docs/server-manual/server-commands/#access-control-commands
