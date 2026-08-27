@@ -96,6 +96,6 @@ end)
 --[[
   USAGE EXAMPLES:
   - Add ACE in server.cfg: add_ace group.admin command.mycommand allow
-  - Set webhook server-side: setr myresource_discord_webhook https://discord.com/api/webhooks/<id>/<token>
+  - Set webhook server-side: set myresource_discord_webhook "https://discord.com/api/webhooks/<id>/<token>"  # server-only; never use setr for secrets
   - In-game: /mycommand [args]
 ]]
