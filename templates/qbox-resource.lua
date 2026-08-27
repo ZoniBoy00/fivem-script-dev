@@ -14,13 +14,16 @@ local Config = Config or {}  -- Loaded from shared/config.lua
 -- CLIENT MAIN
 -- ============================================================================
 
--- Add this to the resource's fxmanifest.lua before loading this client file:
+-- Add these to the resource's fxmanifest.lua:
 -- shared_scripts {
+--     '@ox_lib/init.lua',
 --     '@qbx_core/modules/lib.lua',
+-- }
+-- client_scripts {
 --     '@qbx_core/modules/playerdata.lua',
+--     'client.lua',
 -- }
 -- dependency 'qbx_core'
--- Use the documented QBox lifecycle events below.
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     isLoggedIn = true
     print('Player loaded!')

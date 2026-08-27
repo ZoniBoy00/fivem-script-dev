@@ -13,12 +13,12 @@ local Config = Config or {}
 -- CLIENT MAIN
 -- ============================================================================
 
--- Wait for player data to load
+-- Wait for the QBCore login state, not for GetPlayerData() to become nil.
 CreateThread(function()
-    while not QBCore.Functions.GetPlayerData() do
+    while not LocalPlayer.state.isLoggedIn do
         Wait(100)
     end
-    
+
     isLoggedIn = true
     PlayerData = QBCore.Functions.GetPlayerData()
     OnPlayerLoaded()
@@ -32,6 +32,11 @@ end
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     isLoggedIn = true
     PlayerData = QBCore.Functions.GetPlayerData()
+end)
+
+RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+    isLoggedIn = false
+    PlayerData = {}
 end)
 
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)

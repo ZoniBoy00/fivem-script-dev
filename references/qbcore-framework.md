@@ -12,7 +12,7 @@ local QBCore = exports['qb-core']:GetCoreObject()
 local PlayerData = {}
 
 CreateThread(function()
-    while not QBCore.Functions.GetPlayerData() do
+    while not LocalPlayer.state.isLoggedIn do
         Wait(100)
     end
     PlayerData = QBCore.Functions.GetPlayerData()
@@ -21,6 +21,10 @@ end)
 -- Event-driven updates
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     PlayerData = QBCore.Functions.GetPlayerData()
+end)
+
+RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+    PlayerData = {}
 end)
 
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)

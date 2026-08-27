@@ -47,15 +47,16 @@ local Player = QBCore.Functions.GetPlayer(source)
 "Converting resources only helps to improve readability and reduce memory footprint" — Qbox team.
 
 ```lua
--- Old QBCore style (works via bridge)
+-- Old QBCore-compatible style (works through Qbox's bridge)
 local QBCore = exports['qb-core']:GetCoreObject()
 local Player = QBCore.Functions.GetPlayer(source)
 Player.Functions.AddMoney('cash', 100)
-QBCore.Functions.Notify(source, 'Money added!')
+TriggerClientEvent('QBCore:Notify', source, 'Money added!', 'success')
 
--- New QBox style (recommended)
+-- Native QBox style (recommended)
 local player = exports.qbx_core:GetPlayer(source)
-player.Functions.AddMoney('cash', 100)
+if not player then return end
+exports.qbx_core:AddMoney(source, 'cash', 100, 'Example reward')
 TriggerClientEvent('ox_lib:notify', source, { type = 'success', description = 'Money added!' })
 ```
 
@@ -72,12 +73,16 @@ TriggerClientEvent('ox_lib:notify', source, { type = 'success', description = 'M
 
 ```lua
 -- CLIENT
--- In fxmanifest.lua, add:
+-- Add these to the resource's fxmanifest.lua:
 -- shared_scripts {
---   '@qbx_core/modules/lib.lua',
---   '@qbx_core/modules/playerdata.lua',
+--     '@ox_lib/init.lua',
+--     '@qbx_core/modules/lib.lua',
 -- }
--- qbx is then supplied by the documented client module.
+-- client_scripts {
+--     '@qbx_core/modules/playerdata.lua',
+--     'client.lua',
+-- }
+-- dependency 'qbx_core'
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     print('Player fully loaded')
 end)
@@ -103,11 +108,9 @@ if not player then return end
 local player = exports.qbx_core:GetPlayer(source)
 if not player then return end
 
--- Money management
-player.Functions.AddMoney('cash', amount)
-player.Functions.RemoveMoney('cash', amount)
-player.Functions.AddMoney('bank', amount)
-player.Functions.RemoveMoney('bank', amount)
+-- Native QBox money exports
+exports.qbx_core:AddMoney(source, 'cash', amount, 'Example reward')
+exports.qbx_core:RemoveMoney(source, 'bank', amount, 'Example purchase')
 
 -- Player data access
 player.PlayerData.job.name           -- 'police'
