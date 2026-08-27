@@ -6,7 +6,7 @@
 -- CONFIG
 Config = Config or {}
 Config.DiscordLog = {
-    WebhookURL = 'https://discord.com/api/webhooks/your_webhook_id/your_webhook_token',
+    WebhookConvar = 'myresource_discord_webhook', -- set server-side; never commit the URL
     BotName = 'My Server Logger',
     BotAvatar = 'https://i.imgur.com/yourlogo.png',
     RateLimit = 1000,           -- ms between messages
@@ -52,7 +52,7 @@ function SendDiscordEmbeds(embeds, webhookOverride)
     -- Discord limit: max 10 embeds per message
     local chunks = {}
     for i = 1, #embeds, Config.DiscordLog.MaxEmbedsPerMessage do
-        table.insert(chunks, { unpack(embeds, i, i + Config.DiscordLog.MaxEmbedsPerMessage - 1) })
+        table.insert(chunks, { table.unpack(embeds, i, i + Config.DiscordLog.MaxEmbedsPerMessage - 1) })
     end
     
     for _, chunk in ipairs(chunks) do
