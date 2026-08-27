@@ -82,11 +82,12 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     print('Player fully loaded')
 end)
 
-RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
+RegisterNetEvent('qbx_core:client:playerLoggedOut', function()
     print('Player logged out')
 end)
 
--- QBox also emits 'qbx_core:client:playerLoggedOut' after player cleanup.
+-- QBox also emits 'QBCore:Client:OnPlayerUnload' earlier in the unload lifecycle.
+-- Use that event when cleanup must run before Qbox removes the player.
 
 -- SERVER
 local player = exports.qbx_core:GetPlayer(source)
