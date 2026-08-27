@@ -1,5 +1,8 @@
 name: Validate skill pack
 
+permissions:
+  contents: read
+
 on:
   push:
   pull_request:
@@ -7,8 +10,9 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check referenced files
         shell: bash
         run: |
@@ -22,7 +26,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y lua5.4 luarocks
-          sudo luarocks install luacheck
+          sudo luarocks install luacheck 1.2.0
       - name: Lua syntax check
         shell: bash
         run: |
