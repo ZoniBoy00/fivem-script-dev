@@ -30,6 +30,9 @@ RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
     isLoggedIn = false
 end)
 
+-- QBox also emits 'qbx_core:client:playerLoggedOut' after player cleanup.
+-- Use OnPlayerUnload for normal resource lifecycle cleanup.
+
 -- ============================================================================
 -- CALLBACK EXAMPLE (Client → Server via ox_lib)
 -- ============================================================================

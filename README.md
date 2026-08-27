@@ -82,7 +82,11 @@ cp -r fivem-script-dev ~/.hermes/skills/gaming/
 
 The AI will then automatically reference the correct patterns when you ask FiveM-related questions.
 
-### Option 3: Use in Codex\n\nFor a repository-scoped Codex skill, place it under `.agents/skills/fivem-script-dev/` in the repository that needs it. Keep `SKILL.md` concise and load only the references needed for the task. For reusable distribution, package the skill as a Codex plugin.\n\n### Option 4: Templates for rapid scaffolding
+### Option 3: Use in Codex
+
+For a repository-scoped Codex skill, place it under `.agents/skills/fivem-script-dev/` in the repository that needs it. Keep `SKILL.md` concise and load only the references needed for the task. For reusable distribution, package the skill as a Codex plugin.
+
+### Option 4: Templates for rapid scaffolding
 
 Use templates when starting a new resource:
 

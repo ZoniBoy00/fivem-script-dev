@@ -5,11 +5,16 @@
     box-sizing: border-box;
 }
 
+html {
+    background: transparent !important;
+    height: 100%;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: #fff;
     overflow: hidden;
-    background: transparent;
+    background: transparent !important;
     user-select: none;
 }
 
