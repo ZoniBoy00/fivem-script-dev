@@ -4,9 +4,9 @@
 
 ## Core Concepts
 
-QBox's goal is improving upon QBCore while maintaining backwards compatibility. It utilizes [Overextended resources](https://github.com/CommunityOx) (ox_lib, ox_inventory, ox_target, oxmysql) instead of maintaining in-house alternatives.
+QBox's goal is improving upon QBCore while maintaining backwards compatibility. It utilizes [Overextended resources](https://github.com/overextended) (ox_lib, ox_inventory, ox_target, oxmysql) instead of maintaining in-house alternatives.
 
-> **⚠️ API Stability:** QBox is under active development and its APIs (especially `require 'qbx_core'`, bridge layers, and item config locations) can change between releases. Always verify the current docs at https://docs.qbox.re/ before relying on any specific pattern.
+> **⚠️ API Stability:** QBox is under active development and its APIs (especially module wiring, bridge layers, lifecycle events, and item config locations) can change between releases. Always verify the current docs at https://docs.qbox.re/ before relying on any specific pattern.
 
 ### Key Differences from QBCore
 
@@ -14,7 +14,7 @@ QBox's goal is improving upon QBCore while maintaining backwards compatibility. 
 |---------|--------|------|
 | Core resource | `qb-core` | `qbx_core` |
 | Player retrieval | `QBCore.Functions.GetPlayer(source)` | `exports.qbx_core:GetPlayer(source)` |
-| Module system | Global exports (`QBCore.Shared`) | `require 'module'` + exports |
+| Module system | Global exports (`QBCore.Shared`) | qbx_core modules + exports |
 | UI library | qb-menu / qb-input | ox_lib (default) |
 | Inventory | qb-inventory | ox_inventory (default) |
 | Targeting | qb-target | ox_target (default) |
@@ -72,18 +72,18 @@ TriggerClientEvent('ox_lib:notify', source, { type = 'success', description = 'M
 
 ```lua
 -- CLIENT
-local qbx = require 'qbx_core'
-
-CreateThread(function()
-    while not qbx:IsLoggedIn() do
-        Wait(100)
-    end
-    print('Player loaded!')
+-- In fxmanifest.lua, add:
+-- shared_scripts {
+--   '@qbx_core/modules/lib.lua',
+--   '@qbx_core/modules/playerdata.lua',
+-- }
+-- qbx is then supplied by the documented client module.
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+    print('Player fully loaded')
 end)
 
--- Native event (alternative)
-RegisterNetEvent('qbx_core:client:onPlayerLoaded', function()
-    print('Player fully loaded')
+RegisterNetEvent('qbx_core:client:playerLoggedOut', function()
+    print('Player logged out')
 end)
 
 -- SERVER
@@ -130,18 +130,17 @@ exports.ox_inventory:RemoveItem(source, 'water', 1)
 -- Get all items
 local items = exports.ox_inventory:GetInventoryItems(source)
 
--- Register usable item
-exports.ox_inventory:registerUsableItem('lockpick', function(source, item, metadata)
-    TriggerClientEvent('myres:useLockpick', source)
-end)
+-- Usable items: use the item server export configured in ox_inventory,
+-- or the documented QBox CreateUseableItem export when using a QBCore bridge.
+-- Verify the current signature in QBox/ox_inventory docs before implementation.
 ```
 
 ### Items — Dual Config
 
-With QBox, items need to be configured in **two places**:
+With QBox, configure the item in the inventory first. Add the QBox shared-item definition only when a QB bridge consumer specifically needs it:
 
-1. **`qbx_core/shared/items.lua`** — For bridge compatibility (only if accessed via QBCore bridge). Items added here are auto-added to ox_inventory.
-2. **`ox_inventory/data/items.lua`** — For client/server exports, animations, props, etc.
+1. **`ox_inventory/data/items.lua`** — Primary inventory definition, including client/server behaviour.
+2. **`qbx_core/shared/items.lua`** — Optional compatibility definition for resources using the QB bridge; do not duplicate it by default.
 
 ```lua
 -- qbx_core/shared/items.lua (bridge compatibility)

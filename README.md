@@ -1,7 +1,7 @@
 # FiveM Script Development — AI Context Pack
 
 > **A structured knowledge pack for AI-assisted FiveM script development.**  
-> Supports ESX, QBCore, QBox, and the Ox ecosystem with production-ready templates and security best practices.
+> Supports ESX, QBCore, QBox, and the Ox ecosystem with reviewed templates and security-focused best practices.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![FiveM](https://img.shields.io/badge/FiveM-cfx.re-blue)](https://docs.fivem.net/docs/)
@@ -36,7 +36,7 @@ gaming/fivem-script-dev/
 │   ├── other-resources.md            Fivemanage, state bags
 │   ├── documentation-and-versioning.md Official-source and freshness checks
 │   └── optimization.md               Variable wait, caching, events
-└── templates/                         ← 9 production-ready templates
+└── templates/                         ← 9 adaptable templates
     ├── fxmanifest.lua                 Universal manifest template
     ├── nui/                           Full NUI scaffold (HTML/CSS/JS)
     ├── esx-resource.lua               ESX resource scaffold
@@ -82,7 +82,7 @@ cp -r fivem-script-dev ~/.hermes/skills/gaming/
 
 The AI will then automatically reference the correct patterns when you ask FiveM-related questions.
 
-### Option 3: Templates for rapid scaffolding
+### Option 3: Use in Codex\n\nFor a repository-scoped Codex skill, place it under `.agents/skills/fivem-script-dev/` in the repository that needs it. Keep `SKILL.md` concise and load only the references needed for the task. For reusable distribution, package the skill as a Codex plugin.\n\n### Option 4: Templates for rapid scaffolding
 
 Use templates when starting a new resource:
 

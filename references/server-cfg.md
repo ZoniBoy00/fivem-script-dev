@@ -1,301 +1,97 @@
 # server.cfg Configuration Reference
 
-> The server configuration file controls everything from player limits to resource startup order to game build.
+> Treat this as a starting point, not a complete convar catalogue. Verify every version-sensitive or resource-specific setting against the current [Cfx.re server command documentation](https://docs.fivem.net/docs/server-manual/server-commands/) and the documentation for the resource that owns it.
 
----
-
-## File Location
-
-- **Standard:** `/server-data/server.cfg` (root of your server data directory)
-- **Windows TXAdmin:** Usually auto-generated, accessible via web panel
-
----
-
-## Basic Configuration
+## Basic configuration
 
 ```cfg
-# Hostname (shows in server browser)
 sv_hostname "My FiveM Server [EU] [RP]"
-
-# Server description (HUD tooltip)
-sets sv_projectDesc "A custom roleplay server with unique scripts"
 sets sv_projectName "MyServer"
+sets sv_projectDesc "A custom roleplay server with unique scripts"
 
-# Maximum connected players
 sv_maxclients 48
-
-# Server ID for txAdmin or standalone (must be unique)
-sv_serverId 1
-
-# Steam API key (optional, enables some Steam features)
-set steam_webApiKey "YOUR_STEAM_KEY"
-
-# License key (REQUIRED — from cfx.re)
 sv_licenseKey "YOUR_CFX_KEY"
-```
-
----
-
-## Essential Settings
-
-### Game Build
-
-```cfg
-# Controls game build version (affects packfiles, DLCs, ymaps)
-sv_enforceGameBuild 3258       # Example build — always use the newest your assets support
-# Build numbers are GTA Online title updates. Common examples:
-# 3258+ = various 2024–2025 builds
-# 2944 = GTA Online Danny & The Veteran
-# 2802 = Bottom Dollar Bounties
-# 2699 = Agents of Sabotage
-# 2545 = Chop Shop
-# 2372 = San Andreas Mercenaries
-# 2189 = Drug Wars (popular for modding)
-# 2060 = Criminal Enterprises
-# 1604 = Cayo Perico (legacy)
-
-# If using map mods, match the build to the mod requirements
-# Check the current latest build at https://docs.fivem.net/docs/server-manual/server-commands/#sv_enforcegamebuild
-```
-
-### OneSync
-
-```cfg
-# Entity streaming mode
-onesync on                     # Recommended (32-128 players)
-# onesync off                  # Legacy (<32 players)
-# onesync essential            # Force scoped entities (>128 players)
-
-# Force migration to new entity system
-onesync_forceMigrate true
-
-# Enable Infinity (EXTREME player counts — experimental)
-# onesync_enableInfinity false
-```
-
-### Network
-
-```cfg
-# Network optimization
-sv_forceIndirectListing true   # Hide from server list (optional)
-sv_master1 ""                  # Unset if not listing publicly
-sv_endpointPrivacy true        # Hide IPs from players
-
-# Packet loss / latency
-sv_maxPing 300                 # Kick players above this ping (0 = disabled)
-sv_packetLossThreshold 0.5    # % threshold
-sv_pingSmoothing 500           # Ping calculation smoothing (ms)
-
-# Bandwidth
-sv_maxBitrate 1024             # Max upload per player (kbps, 0 = auto)
-sv_minClientVersion "0"        # Min client build version
-```
-
----
-
-## Resource Management
-
-```cfg
-# Auto-start resources (order matters!)
-ensure mapmanager
-ensure spawnmanager
-ensure sessionmanager
-ensure basic-gamemode
-ensure chat
-
-# Database
-ensure mysql-async              # Legacy — prefer oxmysql
-ensure oxmysql                  # Modern
-
-# Core framework
-ensure es_extended              # ESX
-# ensure qb-core                # QBCore
-# ensure qbx_core               # QBox
-
-# UI
-ensure ox_lib
-
-# Inventory
-ensure ox_inventory             # Modern inventory
-
-# Your resources
-ensure my_awesome_resource
-ensure vehicle_shop
-
-# Manual start only (not auto-started)
-# start admin_menu
-```
-
-### Resource Start Order Rules
-
-1. **Managers:** `mapmanager`, `spawnmanager`, `sessionmanager` first
-2. **Database:** `oxmysql` before anything that queries DB
-3. **Framework:** Core resource (`es_extended`/`qb-core`) before dependent resources
-4. **Utils:** `ox_lib` before resources that use it
-5. **Your resources:** After all dependencies are loaded
-
----
-
-## ACE Permissions (in server.cfg)
-
-```cfg
-# Define groups
-add_ace group.admin command allow           # All commands
-add_ace group.admin command.kick allow       # Specific command
-add_ace group.moderator command.say allow   # Limited commands
-
-# Add players to groups
-add_principal identifier.steam:11000010xxxxx group.admin
-add_principal identifier.license:xxxxxxxxx group.moderator
-
-# Default denies
-add_ace builtin.everyone command.restart deny
-add_ace builtin.everyone command.stop deny
-add_ace builtin.everyone resource.menu deny
-```
-
-**Better practice:** Use a separate `permissions.cfg` and include it:
-
-```cfg
-# In server.cfg
-exec permissions.cfg
-```
-
----
-
-## Script Logging & Debugging
-
-```cfg
-# Console logging
-sv_scriptLogLevel 3            # 0=none, 1=error, 2=warn, 3=info, 4=verbose
-sv_scriptDebugInfo false       # Enable for debug, disable in production
-
-# Error handling
-sv_scriptHookLogLevel 3        # Hook logging level
-sv_sqlTraceEnable false        # SQL query logging (debug only!)
-
-# Print all resources loading
-sv_forceResourceScan true      # Re-scan resources on server start
-sv_enableResourceMetadataScan true
-```
-
----
-
-## Tags & Browser Display
-
-```cfg
-# Server tags (for filter/search in server browser)
-sets tags "roleplay, economy, custom, active_admin"
-
-# Discord invite
-sets discord_invite "https://discord.gg/yourserver"
-
-# Locale
-sets locale "en-US"            # or "fi-FI", "sv-SE", etc.
-
-# Banner image (must be a direct image URL)
-sets banner_detail "https://i.imgur.com/yourbanner.png"
-sets banner_connecting "https://i.imgur.com/yourbanner2.png"
-```
-
----
-
-## Player Limits & Queue
-
-```cfg
-# Queue system
-sv_queueMaxPlayers 64          # Queue size
-sv_queuePriorityLevel 1        # Priority for VIPs etc.
-
-# Whitelist
-sv_authMinTrustLevel 1         # 0=none, 1=basic, 2=steam, 3=fivem
-sv_whitelistEnabled false      # Enable to restrict to whitelisted identifiers
-
-# AFK kick
-sv_afkTimer 600                # AFK kick after seconds (0 = disabled)
-```
-
----
-
-## Voice
-
-```cfg
-# Voice chat (built-in) — largely deprecated
-# Most servers use pma-voice or a similar dedicated voice resource instead.
-set voice_useNativeAudio true
-set voice_useSendingRangeOnly true
-set voice_defaultVolume 1.0
-
-# 3D voice proximity
-set voice_enableRadioChat false
-set voice_radioChatVolume 0.3
-set voice_proximityVolume 1.0
-set voice_range 15.0           # Talk range in meters
-set voice_enableProximity true
-set voice_enableUi true
-```
-
----
-
-## Full Example server.cfg
-
-```cfg
-# --- Basic ---
-sv_hostname "My FiveM Server [EU]"
-sv_maxclients 48
-sv_licenseKey "YOUR_KEY_HERE"
 set steam_webApiKey "YOUR_STEAM_KEY"
+```
 
-# --- Game ---
-sv_enforceGameBuild 3258
+Keep licence keys, API keys, webhooks, and database credentials out of version control. Use server-only convars or a deployment secret store.
+
+## Game build and OneSync
+
+Choose the game build required by your maps, assets, and dependencies. The current build list changes, so do not copy a build number from an old guide without checking the official documentation.
+
+```cfg
+# Replace with the build your assets require after verifying the current list.
+sv_enforceGameBuild 3751
+
+# Valid modes: on, off, legacy. Most servers use on.
 onesync on
-onesync_forceMigrate true
 
-# --- Network ---
-sv_maxPing 300
-sv_endpointPrivacy true
+# Optional: the documented convar is onesync_forceMigration.
+onesync_forceMigration true
+```
 
-# --- Resources ---
+## Resource startup order
+
+Start dependencies before resources that consume them. Pick the framework and inventory that match your server; do not enable mutually incompatible alternatives just because they appear in an example.
+
+```cfg
 ensure mapmanager
-ensure spawnmanager
-ensure sessionmanager
-ensure basic-gamemode
 ensure chat
+
+# Database and shared libraries first
 ensure oxmysql
-ensure es_extended
 ensure ox_lib
+
+# Choose one framework stack
+ensure es_extended
+# ensure qb-core
+# ensure qbx_core
+
+# Start only after its dependencies and bridge are ready
 ensure ox_inventory
 
-# --- Permissions ---
-exec permissions.cfg
-
-# --- Metadata ---
-sets tags "roleplay, custom, active"
-sets discord_invite "https://discord.gg/yourserver"
-sets locale "en-US"
-
-# --- Voice ---
-set voice_useNativeAudio true
-set voice_defaultVolume 1.0
-set voice_range 15.0
-
-# --- Logging (production) ---
-sv_scriptLogLevel 2
+# Your resources last
+ensure my_awesome_resource
 ```
 
----
+If a resource ships its own setup documentation, that documentation takes precedence for start order and its convars.
 
-## Quick Reference — Common Convars
+## ACE permissions
 
-| Convar | Default | Description |
-|--------|---------|-------------|
-| `sv_maxclients` | 32 | Max players |
-| `sv_enforceGameBuild` | 0 | Game build version |
-| `onesync` | off | Entity streaming mode |
-| `sv_scriptLogLevel` | 3 | Verbosity of script logs |
-| `sv_maxPing` | 0 | Ping limit (0 = disabled) |
-| `sv_endpointPrivacy` | false | Hide player IPs |
-| `sv_forceIndirectListing` | false | Hide from server list |
-| `sv_afkTimer` | 0 | AFK kick timeout (seconds) |
-| `sv_authMinTrustLevel` | 0 | Minimum trust for auth |
-| `sv_whitelistEnabled` | false | Enable whitelist |
+Keep permissions in a separate file so they can be reviewed independently.
+
+```cfg
+# server.cfg
+exec permissions.cfg
+```
+
+```cfg
+# permissions.cfg
+add_ace group.admin command.mycommand allow
+add_principal identifier.license:YOUR_LICENSE group.admin
+```
+
+Grant the narrowest permission needed. Avoid broad `command allow` grants for groups that only need one custom command.
+
+## Server listing metadata
+
+```cfg
+sets tags "roleplay, economy, custom"
+sets locale "fi-FI"
+sets discord_invite "https://discord.gg/yourserver"
+sets banner_detail "https://example.invalid/banner-detail.png"
+sets banner_connecting "https://example.invalid/banner-connecting.png"
+```
+
+## Voice, queues, whitelists and logging
+
+Voice, queue, whitelist, AFK, ping-limit, and detailed logging settings are usually owned by a specific resource (for example pma-voice, a queue resource, txAdmin, or an administration resource). Configure those settings in that resource's documented configuration instead of relying on undocumented `sv_*` variables.
+
+## Deployment checklist
+
+1. Verify game build and OneSync convars against current Cfx.re docs.
+2. Confirm dependency start order from the exact framework, inventory, database, and voice resource versions in use.
+3. Store secrets with server-only `set` convars or deployment secrets; never use `setr` for secrets.
+4. Test a clean boot, a resource restart, a player join, and a player disconnect.
+5. Keep server-specific configuration outside the public skill repository.

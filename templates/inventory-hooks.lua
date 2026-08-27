@@ -225,15 +225,17 @@ exports.ox_inventory:RemoveItem(source, 'weapon_pistol', 1, { serial = 'SERIAL12
 
 -- Get item data
 local item = exports.ox_inventory:GetSlot(source, slotIndex)  -- Full slot data
-local items = exports.ox_inventory:GetItems(source)           -- All items
+local items = exports.ox_inventory:GetInventoryItems(source)  -- All items
 
 -- Has item
 local hasItem = exports.ox_inventory:Search('count', 'water', nil, source) > 0
 
--- Open inventory for player
-exports.ox_inventory:openInventory(source, 'shop', { id = 'twentyfourseven' })
-exports.ox_inventory:openInventory(source, 'stash', { id = 'closet_1' })
-exports.ox_inventory:openInventory(source, 'craft', { id = 'crafting_table' })
+-- Opening an inventory is a client export. From a server handler, register
+-- shops/stashes/crafting data and ask the authorized client to open it.
+-- Only use forceOpenInventory after explicit server-side authorization:
+exports.ox_inventory:forceOpenInventory(source, 'shop', { id = 'twentyfourseven' })
+exports.ox_inventory:forceOpenInventory(source, 'stash', { id = 'closet_1' })
+exports.ox_inventory:forceOpenInventory(source, 'crafting', { id = 'crafting_table' })
 
 -- Register usable item export
 exports('usePhone', function(data, slot)
@@ -250,7 +252,7 @@ end)
 RegisterNetEvent('myresource:openStash', function(stashId, slots, weight)
     local src = source
     -- Each player gets their own stash instance
-    exports.ox_inventory:openInventory(src, 'stash', {
+    exports.ox_inventory:forceOpenInventory(src, 'stash', {
         id = ('%s_%s'):format(stashId, GetPlayerIdentifiers(src)[1]),  -- Unique per player
         label = 'My Stash',
         slots = slots or 20,
