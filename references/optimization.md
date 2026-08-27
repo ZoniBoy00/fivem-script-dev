@@ -215,5 +215,5 @@ end
 ## Links
 
 - Cfx Forum Performance Guide: https://forum.cfx.re/t/best-practice-improve-your-resource-performance/105509
-- Script Optimization (QBCore): https://docs.qbcore.org/qbcore-documentation/guides/script-optimization.md
-- FiveM Server Optimization: https://docs.fivem.net/docs/server-manual/server-optimization/
+- Script Optimization (QBCore): https://qbcore.org/docs/guides/script-optimization
+- FiveM Networking: https://docs.fivem.net/docs/scripting-manual/networking/

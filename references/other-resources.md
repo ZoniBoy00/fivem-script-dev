@@ -7,64 +7,64 @@
 
 ### Installation
 
-1. Download SDK from Fivemanage dashboard
-2. Extract to `resources/` folder
-3. Add `ensure fmsdk` in server.cfg (after database connection, before other resources)
-4. Configure API keys in `config.json`
+1. Download the latest `fmsdk.zip` release from the [Fivemanage SDK releases](https://github.com/fivemanage/sdk/releases/latest).
+2. Extract the `fmsdk` folder into your server's `resources/` directory.
+3. Install `screenshot-basic` if screenshot capture is needed.
+4. Start `screenshot-basic` before `fmsdk`:
+
+```cfg
+ensure screenshot-basic
+ensure fmsdk
+```
+
+5. Configure the server-only convars in `server.cfg` as needed:
+
+```cfg
+set FIVEMANAGE_MEDIA_API_KEY "your_media_api_key"
+set FIVEMANAGE_LOGS_API_KEY "your_logs_api_key"
+```
+
+Never commit API keys. Both convars are not required if the corresponding SDK feature is unused.
 
 ### Screenshots
 
 ```lua
--- Client: take screenshot
-exports.fmsdk:takeImage(function(success, url)
-    if success then
-        print('Screenshot saved:', url)
-    end
-end)
-
--- With metadata
-exports.fmsdk:takeImage(function(success, url)
-    -- url = direct link to screenshot
-end)
+-- Client: take screenshot (returns a Promise-like awaitable result)
+local imageData = exports.fmsdk:takeImage({
+    name = 'Player screenshot',
+})
+print('Screenshot saved:', imageData.url)
 
 -- Server: take screenshot of a specific player
-exports.fmsdk:takeServerImage(source, {
+local imageData = exports.fmsdk:takeServerImage(source, {
     name = 'Evidence Screenshot',
     description = 'Player interaction evidence',
-}, function(success, url)
-    if success then
-        print('Server screenshot:', url)
-    end
-end)
-
--- Upload external image
-exports.fmsdk:uploadImage(imageUrl, {
-    name = 'Custom Image',
-}, function(success, url) end)
+})
+print('Server screenshot:', imageData.url)
 ```
 
 ### Logging
 
 ```lua
--- Basic logging
-exports.fmsdk:Log('Player killed another player', 2)  -- 2 = Info level
+-- Log(datasetId, level, message, metadata)
+exports.fmsdk:Log('default', 'info', 'Player joined', {
+    playerSource = source,
+})
 
--- Log levels
-exports.fmsdk:Info('Player joined')         -- Level 2
-exports.fmsdk:Warn('Suspicious activity')   -- Level 3
-exports.fmsdk:Error('Script error')         -- Level 4
+exports.fmsdk:Info('default', 'Player joined')
+exports.fmsdk:Warn('default', 'Suspicious activity')
+exports.fmsdk:Error('default', 'Script error')
 
--- Log with metadata
-exports.fmsdk:LogMessage('Custom Event', {
+-- LogMessage(message, level, metadata) uses the default dataset
+exports.fmsdk:LogMessage('Custom Event', 'warn', {
     type = 'admin_action',
-    player = source,
+    playerSource = source,
     action = 'ban',
-    target = targetId,
-}, 'Warn')
-
--- Automatic events (configurable in config.json)
--- Includes: playerConnecting, playerDropped, resourceStart/Stop
+    targetSource = targetId,
+})
 ```
+
+See the SDK's current `config.json` for automatic player, chat, and txAdmin event settings.
 
 ## State Bags
 
@@ -207,5 +207,5 @@ end)
 
 - Fivemanage: https://docs.fivemanage.com/fivem-sdk/installation
 - Stock resources: https://docs.fivem.net/docs/resources/
-- State bags: https://docs.fivem.net/docs/scripting-reference/glue/state_bags/
+- State bags: https://docs.fivem.net/docs/scripting-manual/networking/state-bags/
 - Baseevents (list of all core events): https://docs.fivem.net/docs/scripting-reference/events/list/

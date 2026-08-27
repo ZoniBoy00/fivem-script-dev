@@ -5,7 +5,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![FiveM](https://img.shields.io/badge/FiveM-cfx.re-blue)](https://docs.fivem.net/docs/)
-[![Ox](https://img.shields.io/badge/Ox-Overextended-green)](https://overextended.dev/docs)
+[![Ox](https://img.shields.io/badge/Ox-Overextended-green)](https://overextended.dev/)
 
 ---
 
@@ -131,11 +131,11 @@ Common patterns (shops, doors, vehicles) are written with adapters for ESX, QBCo
 - [ESX Framework](https://docs.esx-framework.org/)
 - [QBCore Documentation](https://docs.qbcore.org/qbcore-documentation)
 - [QBox Documentation](https://docs.qbox.re/)
-- [Ox Lib Docs](https://overextended.dev/docs/ox_lib)
-- [Overextended Docs](https://overextended.dev/docs)
+- [Ox Lib Docs](https://overextended.dev/ox_lib)
+- [Overextended Docs](https://overextended.dev/)
 - [FiveM Performance Guide](https://forum.cfx.re/t/best-practice-improve-your-resource-performance/105509)
-- [FiveM Native UI (NUI)](https://docs.fivem.net/docs/game-references/nui/)
-- [FiveM ACE Permissions](https://docs.fivem.net/docs/server-manual/permissions/)
+- [FiveM Native UI (NUI)](https://docs.fivem.net/docs/scripting-manual/nui-development/)
+- [FiveM ACE Permissions](https://docs.fivem.net/docs/server-manual/server-commands/#access-control-commands)
 
 ---
 

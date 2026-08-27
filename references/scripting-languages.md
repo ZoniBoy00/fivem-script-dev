@@ -106,9 +106,9 @@ main();
 const ped = PlayerPedId();
 const coords = GetEntityCoords(ped);
 
-// NUI
-SendNuiMessage(JSON.stringify({ type: 'open' }));
-RegisterNuiCallback('close', (data, cb) => { cb({}); });
+// NUI callbacks in the JavaScript runtime
+RegisterNuiCallbackType('close');
+on('__cfx_nui:close', (data, cb) => { cb({}); });
 
 // Commands
 RegisterCommand('car', (source, args, raw) => {

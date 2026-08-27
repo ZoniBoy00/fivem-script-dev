@@ -271,5 +271,5 @@ Config = {
 - Core reference: https://docs.esx-framework.org/en/esx_core/
 - Client functions: https://docs.esx-framework.org/en/esx_core/es_extended/client/functions
 - Server functions: https://docs.esx-framework.org/en/esx_core/es_extended/server/functions
-- Configuration: https://docs.esx-framework.org/en/esx_core/es_extended/config
+- Configuration: https://docs.esx-framework.org/en/esx_core/es_extended/config/main
 - GitHub: https://github.com/esx-framework/esx_core

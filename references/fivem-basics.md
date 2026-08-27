@@ -66,7 +66,7 @@ data_file 'VEHICLE_METADATA_FILE' 'data/vehicles.meta'
 | Pattern | Matches |
 |---------|---------|
 | `*.lua` | All .lua in root (non-recursive) |
-| `**/*.lua` or `**.lua` | All .lua recursively |
+| `**/*.lua` | All .lua recursively |
 | `client/cl_*.lua` | cl_-prefixed files in client/ |
 | `dir/*.dll` | All .dll in dir/ |
 
@@ -230,7 +230,7 @@ end)
 - If no server error → ask for F8 logs
 - `Citizen.Trace('debug message')` — print without newline
 - `print('msg')` — with newline
-- NUI CEF debugging: `http://localhost:13172/` (Chrome DevTools)
+- NUI debugging: use F8 → `nui_devTools` with `sv_devMode true`.
 
 ## Key Patterns
 

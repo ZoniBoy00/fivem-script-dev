@@ -33,11 +33,11 @@ local count = exports.ox_inventory:Search(source, 'count', 'water')
 -- Add item(s)
 exports.ox_inventory:AddItem(source, 'water', 5)
 -- With metadata
-exports.ox_inventory:AddItem(source, 'weapon_pistol', 1, nil, {serial = 'ABC123', components = {}})
+exports.ox_inventory:AddItem(source, 'weapon_pistol', 1, {serial = 'ABC123', components = {}})
 
 -- Remove item(s)
 exports.ox_inventory:RemoveItem(source, 'water', 1)
-exports.ox_inventory:RemoveItem(source, 'weapon_pistol', 1, nil, {serial = 'ABC123'})
+exports.ox_inventory:RemoveItem(source, 'weapon_pistol', 1, {serial = 'ABC123'})
 
 -- Get item count for player
 local total = exports.ox_inventory:GetItemCount(source, 'water')
@@ -55,9 +55,9 @@ local hasItem = exports.ox_inventory:Search('count', 'lockpick') > 0
 exports.ox_inventory:openInventory('stash', {id = 'police_armory'})  -- Open a stash
 exports.ox_inventory:openInventory('shop', {id = 'ammunation'})       -- Open a shop
 
--- Get current weight/max weight
-local weight = exports.ox_inventory:GetCurrentWeight(source)
-local maxWeight = exports.ox_inventory:GetMaxWeight(source)
+-- Client-side weight exports
+local weight = exports.ox_inventory:GetPlayerWeight()
+local maxWeight = exports.ox_inventory:GetPlayerMaxWeight()
 ```
 
 ### Register Usable Items
@@ -298,6 +298,6 @@ exports.ox_target:addBone('bonnet', {
 
 ## Links
 
-- Ox Inventory: https://overextended.dev/docs/ox_inventory
-- Ox Target: https://overextended.dev/docs/ox_target
-- Overextended docs: https://overextended.dev/docs
+- Ox Inventory: https://overextended.dev/ox_inventory
+- Ox Target: https://overextended.dev/ox_target
+- Overextended docs: https://overextended.dev/

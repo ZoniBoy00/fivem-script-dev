@@ -263,7 +263,7 @@ end)
 -- Police evidence locker
 RegisterNetEvent('police:openEvidence', function(evidenceId)
     local src = source
-    exports.ox_inventory:openInventory(src, 'stash', {
+    exports.ox_inventory:forceOpenInventory(src, 'stash', {
         id = ('evidence_%s'):format(evidenceId),
         label = 'Evidence Locker',
         slots = 50,

@@ -19,7 +19,7 @@ Use this reference whenever an answer depends on a current FiveM native, framewo
 | ESX | `https://docs.esx-framework.org/` and the canonical ESX repository |
 | QBCore | `https://docs.qbcore.org/` and the canonical QBCore repository |
 | QBox | `https://docs.qbox.re/` and the canonical Qbox-project repositories |
-| Ox resources | `https://overextended.dev/docs` and the upstream resource repository |
+| Ox resources | `https://overextended.dev/` and the upstream resource repository |
 
 ## GitHub checks
 

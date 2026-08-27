@@ -1,7 +1,7 @@
 # Ox Lib — UI, Callbacks, Commands, Zones, Keybinds
 
 > Standalone library for FiveM. Always prefer over custom NUI or legacy patterns.
-> Docs: https://overextended.dev/docs/ox_lib
+> Docs: https://overextended.dev/ox_lib
 
 ## Setup
 
@@ -15,7 +15,7 @@ shared_scripts {
 ox_libs { 'locale', 'callback' }
 ```
 
-> Docs: https://overextended.dev/docs/ox_lib
+> Docs: https://overextended.dev/ox_lib
 
 ## Interface
 
@@ -145,7 +145,7 @@ local success = lib.skillCheck({'easy', 'easy', 'medium'}, {'w'})
 lib.callback('myres:server:getData', false, function(data)
     print(data)
 end, arg1, arg2)
--- false = don't wait for player to load (use true to wait)
+-- The second argument is a re-trigger cooldown in milliseconds (false = no cooldown)
 
 -- Client → Server (await style — must be in async context)
 local data = lib.callback.await('myres:server:getData', false, arg1, arg2)
@@ -317,10 +317,10 @@ lib.locale('not_enough_money')
 
 ## Links
 
-- Main docs: https://overextended.dev/docs/ox_lib
-- Interface: https://overextended.dev/docs/ox_lib/Modules/Interface
-- Callback (client): https://overextended.dev/docs/ox_lib/Modules/Callback/Client
-- Callback (server): https://overextended.dev/docs/ox_lib/Modules/Callback/Server
-- AddCommand: https://overextended.dev/docs/ox_lib/Modules/AddCommand/Server
-- Zones: https://overextended.dev/docs/ox_lib/Modules/Zones/Shared
-- AddKeybind: https://overextended.dev/docs/ox_lib/Modules/AddKeybind/Client
+- Main docs: https://overextended.dev/ox_lib
+- Interface: https://overextended.dev/ox_lib/Modules/Interface
+- Callback (client): https://overextended.dev/ox_lib/Modules/Callback/Client
+- Callback (server): https://overextended.dev/ox_lib/Modules/Callback/Server
+- AddCommand: https://overextended.dev/ox_lib/Modules/AddCommand/Server
+- Zones: https://overextended.dev/ox_lib/Modules/Zones/Shared
+- AddKeybind: https://overextended.dev/ox_lib/Modules/AddKeybind/Client

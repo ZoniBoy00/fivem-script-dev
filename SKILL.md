@@ -77,7 +77,7 @@ This applies to ESX, QBCore, QBox, ox_lib, ox_inventory, ox_target, oxmysql, One
 | `GetEntityCoords(ped)` | Get position as vector3 |
 | `#(coords1 - coords2)` | Vector distance (faster than `GetDistanceBetweenCoords`) |
 | `SendNUIMessage({})` | Send data to NUI HTML |
-| `RegisterNuiCallback(name, fn)` | Receive data from NUI |
+| `RegisterNUICallback(name, fn)` | Receive data from NUI |
 | `Citizen.CreateThread(fn)` | Spawn a new thread |
 | `Citizen.Wait(ms)` | Yield thread for ms |
 | `RegisterCommand(name, fn, restricted)` | Register a chat command |
@@ -314,6 +314,6 @@ Also: **FiveM Natives:** https://docs.fivem.net/natives/ — always check here f
 - ESX: https://docs.esx-framework.org/
 - QBCore: https://docs.qbcore.org/qbcore-documentation
 - QBox: https://docs.qbox.re/
-- Ox Lib: https://overextended.dev/docs/ox_lib
-- Overextended: https://overextended.dev/docs
+- Ox Lib: https://overextended.dev/ox_lib
+- Overextended: https://overextended.dev/
 - Performance guide: https://forum.cfx.re/t/best-practice-improve-your-resource-performance/105509

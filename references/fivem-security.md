@@ -76,7 +76,6 @@ RegisterNetEvent('myres:server:loot', function(npcNetId, lootType)
     if #(playerCoords - npcCoords) > 5.0 then
         print(('[myres] suspicious distance request from %s'):format(source))
         return
-        return
     end
     
     -- Process loot
@@ -211,10 +210,10 @@ add_ace group.admin command allow    -- Admin commands
 add_ace group.admin command.car deny -- Restrict specific command
 add_principal identifier.steam:xxx group.admin  -- Assign by Steam ID
 
-# Advanced protection
+# Authentication and build settings
 sv_authMinTrust 5                    -- Minimum trust level
-set sv_enhancedHostSupport 1          -- Enhanced host/network support
-set sv_forceGameBuild 3258            -- Force specific game build
+# Set only after verifying the required build for your assets.
+# sv_enforceGameBuild <verified-build-number>
 
 # Note: There is no server convar that reliably blocks client-side mod menus.
 # Use a dedicated anti-cheat resource if you need protection against mod menus.
@@ -222,5 +221,5 @@ set sv_forceGameBuild 3258            -- Force specific game build
 
 ## Links
 
-- FiveM Security docs: https://docs.fivem.net/docs/server-manual/security/
-- ACE permissions: https://docs.fivem.net/docs/server-manual/administing-with-ace-perm/
+- FiveM Security docs: https://docs.fivem.net/docs/developers/server-security/
+- ACE permissions: https://docs.fivem.net/docs/server-manual/server-commands/#access-control-commands

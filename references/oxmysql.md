@@ -1,7 +1,7 @@
 # OxMySQL — Database Queries
 
 > SQL integration for FiveM. Server-side only. Use MariaDB over MySQL 8 for best compatibility.
-> Docs: https://overextended.dev/docs/oxmysql
+> Docs: https://overextended.dev/oxmysql
 
 ## Setup
 
@@ -49,7 +49,7 @@ MySQL.update.await('DELETE FROM sessions WHERE expires < NOW()', {})
 
 ```lua
 local result = MySQL.prepare.await('SELECT money FROM users WHERE id = ?', {id})
--- Returns: single row or nil (similar to single)
+-- Returns the selected column, row, or rows depending on the query.
 ```
 
 ### MySQL.single — One row or nil
@@ -92,8 +92,11 @@ end)
 
 -- Await
 local success = MySQL.transaction.await({
-    'UPDATE inventory SET quantity = quantity - 1 WHERE id = ?',
-}, {itemId})
+    {
+        query = 'UPDATE inventory SET quantity = quantity - 1 WHERE id = ?',
+        values = { itemId },
+    },
+})
 ```
 
 ## Placeholders (SAFETY)
@@ -167,6 +170,6 @@ end
 
 ## Links
 
-- Main docs: https://overextended.dev/docs/oxmysql
-- Placeholders: https://overextended.dev/docs/oxmysql/placeholders
-- Functions: https://overextended.dev/docs/oxmysql (Functions section)
+- Main docs: https://overextended.dev/oxmysql
+- Placeholders: https://overextended.dev/oxmysql/placeholders
+- Functions: https://overextended.dev/oxmysql (Functions section)

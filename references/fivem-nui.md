@@ -42,7 +42,7 @@ SendNUIMessage({
 ```lua
 -- Show cursor and enable keyboard input
 SetNuiFocus(true, true)        -- (keyboard, mouse)
-SetNuiFocusKeepInput(false)    -- Allow game input when NUI is open (optional)
+SetNuiFocusKeepInput(false)    -- Block game input while NUI has focus (default)
 
 -- Alternative: keep some game input
 SetNuiFocus(true, true)
@@ -56,7 +56,7 @@ SetNuiFocus(false, false)
 
 ```lua
 -- Register NUI callback (AJAX from UI)
-RegisterNuiCallback('buyItem', function(data, cb)
+RegisterNUICallback('buyItem', function(data, cb)
     -- ⚠️ data comes from the client and can be tampered with.
     -- The server must re-validate everything (item, price, quantity, money).
     local itemName = data.itemName
@@ -69,7 +69,7 @@ RegisterNuiCallback('buyItem', function(data, cb)
 end)
 
 -- Register callback without args
-RegisterNuiCallback('close', function(data, cb)
+RegisterNUICallback('close', function(data, cb)
     SetNuiFocus(false, false)
     cb({})
 end)
@@ -133,11 +133,21 @@ function openShop(shopData) {
     shopData.items.forEach(item => {
         const div = document.createElement('div');
         div.className = 'shop-item';
-        div.innerHTML = `
-            <span class="item-name">${item.name}</span>
-            <span class="item-price">$${item.price}</span>
-            <button onclick="buyItem('${item.name}')">Buy</button>
-        `;
+
+        const name = document.createElement('span');
+        name.className = 'item-name';
+        name.textContent = item.name;
+
+        const price = document.createElement('span');
+        price.className = 'item-price';
+        price.textContent = `$${item.price}`;
+
+        const button = document.createElement('button');
+        button.textContent = 'Buy';
+        button.dataset.itemName = item.name;
+        button.addEventListener('click', () => buyItem(button.dataset.itemName));
+
+        div.append(name, price, button);
         container.appendChild(div);
     });
 }
@@ -206,7 +216,7 @@ SetNuiFocus(hasKeyboard, hasMouse)
 SetNuiFocusKeepInput(keepInput)
 
 -- Register callback from UI
-RegisterNuiCallback('name', function(data, cb) cb({}) end)
+RegisterNUICallback('name', function(data, cb) cb({}) end)
 ```
 
 ## Referencing Assets
@@ -219,8 +229,7 @@ RegisterNuiCallback('name', function(data, cb) cb({}) end)
 
 ## Developer Tools
 
-- CEF remote debugging: **http://localhost:13172/** (Chrome DevTools)
-- In-game: Open F8 console → type `nui_devTools` (requires developer mode)
+- In-game: Open F8 console → type `nui_devTools` (requires `sv_devMode true`)
 - Use `console.log()` in JS for client-side debugging
 
 ## Modern Build Pipelines
@@ -256,16 +265,11 @@ ShutdownLoadingScreenNui()
 ### NUI ↔ Callback Security
 
 ```lua
--- Validate that NUI callback is from the right source
-RegisterNuiCallback('sensitiveAction', function(data, cb)
-    -- Check invoking resource
-    if GetInvokingResource() then
-        cb({ error = 'Unauthorized' })
-        return
-    end
-    
-    -- Process
-    cb({ success = true })
+-- Forward NUI input for server-side validation
+RegisterNUICallback('sensitiveAction', function(data, cb)
+    -- NUI data is client-controlled. Validate it in the server event.
+    TriggerServerEvent('myresource:server:sensitiveAction', data)
+    cb({ received = true })
 end)
 ```
 
@@ -326,4 +330,4 @@ html, body {
 - Fullscreen NUI: https://docs.fivem.net/docs/scripting-manual/nui-development/full-screen-nui/
 - NUI Callbacks: https://docs.fivem.net/docs/scripting-manual/nui-development/nui-callbacks/
 - SendNUIMessage: https://docs.fivem.net/docs/scripting-reference/runtimes/lua/functions/SendNUIMessage/
-- RegisterNuiCallback: https://docs.fivem.net/docs/scripting-reference/runtimes/lua/functions/RegisterNUICallback/
+- RegisterNUICallback: https://docs.fivem.net/docs/scripting-reference/runtimes/lua/functions/RegisterNUICallback/

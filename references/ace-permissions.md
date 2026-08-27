@@ -15,12 +15,18 @@
 ```cfg
 add_ace <principal> <permission> <allow/deny>
 add_principal <identifier> <group>
-add_ace group.admin group.moderator allow    -- Inheritance
+add_principal group.moderator group.admin    # Inheritance
 ```
 
 ### Inheritance
 
-Groups inherit hierarchically: `superadmin → admin → moderator → support`. A superadmin automatically gets everything below.
+ACE has no implicit group hierarchy. Declare every parent relationship explicitly with `add_principal`; the first principal inherits from the second:
+
+```cfg
+add_principal group.superadmin group.admin
+add_principal group.moderator group.admin
+add_principal group.moderator group.support
+```
 
 ### Deny by Default
 
@@ -43,12 +49,9 @@ add_ace group.superadmin command.restart allow
 ## Complete Role Hierarchy
 
 ```cfg
-# Default denies
-add_ace builtin.everyone command.restart deny
-add_ace builtin.everyone command.stop deny
-add_ace builtin.everyone command.exec deny
-add_ace builtin.everyone command.ensure deny
-add_ace builtin.everyone txadmin deny
+# Grant only the commands each role needs. Avoid combining a broad
+# `command allow` grant with explicit `command.* deny` entries, because
+# the explicit deny can continue to win during ACE evaluation.
 
 # Superadmin
 add_ace group.superadmin command allow
@@ -56,16 +59,17 @@ add_ace group.superadmin txadmin allow
 add_principal identifier.steam:110000XXXXXX group.superadmin
 
 # Admin
-add_ace group.admin command allow
+add_ace group.admin command.kick allow
+add_ace group.admin command.ban allow
 add_ace group.admin txadmin.view allow
-add_principal group.admin group.moderator allow
+add_principal group.admin group.moderator
 
 # Moderator
 add_ace group.moderator command.kick allow
 add_ace group.moderator command.ban allow
 add_ace group.moderator command.warn allow
 add_ace group.moderator command.spectate allow
-add_principal group.moderator group.support allow
+add_principal group.moderator group.support
 
 # Support
 add_ace group.support command.tp allow
@@ -126,5 +130,5 @@ list_principals
 
 ## Links
 
-- FiveM ACE docs: https://docs.fivem.net/docs/server-manual/administering-with-ace-perm/
-- ACE commands: https://docs.fivem.net/docs/server-manual/ace-commands/
+- FiveM ACE docs: https://docs.fivem.net/docs/server-manual/server-commands/#access-control-commands
+- ACE commands: https://docs.fivem.net/docs/server-manual/server-commands/#access-control-commands
