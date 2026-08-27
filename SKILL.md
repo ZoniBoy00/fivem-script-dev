@@ -1,6 +1,6 @@
 ---
 name: fivem-script-dev
-description: "FiveM (cfx.re) resource development. ESX, QBCore, QBox, Ox ecosystem, NUI, security, optimization. Method selection guide per framework. Custom integration wrappers for paid/third-party scripts. Load ONE reference at a time."
+description: "FiveM (cfx.re) resource development. ESX, QBCore, QBox, Ox ecosystem, NUI, security, optimization. Method selection guide per framework. Custom integration wrappers for paid/third-party scripts. Load the minimum set of references needed for the task."
 version: 2.6.0
 author: ZoniBoy00
 license: MIT
@@ -10,7 +10,7 @@ license: MIT
 
 > **🤖 AI DIRECTIVE:** You are a FiveM Expert AI. When writing code, ALWAYS reference the rules in `references/<topic>.md` and use the architecture patterns found in `templates/` to ensure modern, secure, and optimized Lua. Never hallucinate natives — use https://docs.fivem.net/natives/ to verify parameter order and return types. Never mix framework conventions (e.g., don't use `QBCore.Functions.GetPlayer` in an ESX resource). Prefer the Ox ecosystem when the server already uses it and the feature is supported, but preserve the framework's native default when no compatible Ox bridge or dependency is present. Always validate client data server-side — the client is never trusted. `GetInvokingResource()` only filters resource-to-resource calls; it is not client authentication.
 
-> **TOKEN EFFICIENCY:** Load ONLY `references/<topic>.md` matching the current task. Never load multiple references unless explicitly needed. Templates load only when writing scaffolds.
+> **TOKEN EFFICIENCY:** Load the smallest set of `references/<topic>.md` files needed for the task. Combine references when the task crosses boundaries (for example, inventory + security). Templates load only when writing scaffolds.
 
 > **OX FIRST, NOT OX BLIND:** Prefer Ox ecosystem (ox_lib, ox_inventory, oxmysql, ox_target) when it is installed and compatible with the selected framework. No custom DrawText3D when `lib.showTextUI()` is available. No custom callbacks when `lib.callback` works. Do not replace `qb-inventory`, `qb-target`, or framework-native APIs without a documented bridge and an explicit compatibility decision.
 
@@ -51,7 +51,7 @@ This applies to ESX, QBCore, QBox, ox_lib, ox_inventory, ox_target, oxmysql, One
 |---------|-----|--------|------|
 | Core resource | `es_extended` | `qb-core` | `qbx_core` |
 | Get player | `ESX.GetPlayerFromId(source)` | `QBCore.Functions.GetPlayer(source)` | `exports.qbx_core:GetPlayer(source)` |
-| Add money | `xPlayer.addMoney(amount)` | `Player.Functions.AddMoney('cash', amount)` | via ox_inventory |
+| Add money | `xPlayer.addMoney(amount)` | `Player.Functions.AddMoney('cash', amount)` | `exports.qbx_core:AddMoney(...)` or documented player API |
 | Callback C→S | `ESX.TriggerServerCallback` | `QBCore.Functions.TriggerCallback` | `lib.callback` |
 | **Notify** | **ox_lib** (default) | **QBCore.Functions.Notify** (default) | **ox_lib** |
 | **TextUI** | **ox_lib** | **QBCore.Functions.DrawText3D** (default) / ox_lib optional | **ox_lib** |
@@ -159,12 +159,12 @@ Unknown / custom systems?
 
 ---
 
-## Skill Structure — Load ONE reference per task
+## Skill Structure — Load only the necessary references
 
 ```
 gaming/fivem-script-dev/
 ├── SKILL.md                            ← This file (quick reference + directory)
-├── references/                         ← Load ONE, not all
+├── references/                         ← Load only what the task requires
 │   ├── fivem-basics.md                 → Resource structure, events, exports
 │   ├── lua-for-fivem.md                → Lua best practices
 │   ├── scripting-languages.md          → Lua/JS/C# comparison
@@ -216,7 +216,7 @@ gaming/fivem-script-dev/
 
 ---
 
-## How to Use — Load ONE reference at a time
+## How to Use — Load the minimum necessary references
 
 1. **General FiveM** → `references/fivem-basics.md`
 2. **Lua patterns** → `references/lua-for-fivem.md`
@@ -239,7 +239,7 @@ gaming/fivem-script-dev/
 19. **Documentation/version check** → `references/documentation-and-versioning.md`
 20. **Template needed** → load from `templates/`
 
-**🔑 Token tip:** SKILL.md is ~6KB. Each reference is 5-25KB. Load ONLY the one you need. If you need a second, close the first. Never load all references.
+**🔑 Context tip:** Keep context focused. Load the smallest set of references needed and retain multiple references only when the task genuinely crosses their topics.
 
 Also: **FiveM Natives:** https://docs.fivem.net/natives/ — always check here for exact native parameters.
 
