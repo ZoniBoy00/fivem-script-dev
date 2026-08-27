@@ -7,7 +7,6 @@
 ]]
 
 -- Core variables
-local qbx = require 'qbx_core'
 local isLoggedIn = false
 local Config = Config or {}  -- Loaded from shared/config.lua
 
@@ -15,21 +14,15 @@ local Config = Config or {}  -- Loaded from shared/config.lua
 -- CLIENT MAIN
 -- ============================================================================
 
--- Wait for player to log in
-CreateThread(function()
-    while not qbx:IsLoggedIn() do
-        Wait(100)
-    end
+-- QBox exposes its client library through shared scripts in fxmanifest.lua.
+-- Add '@qbx_core/modules/lib.lua' and '@qbx_core/modules/playerdata.lua' there.
+-- Use documented lifecycle events rather than requiring qbx_core directly.
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     isLoggedIn = true
     print('Player loaded!')
 end)
 
--- Event-driven updates
-RegisterNetEvent('qbx_core:client:onPlayerLoaded', function()
-    isLoggedIn = true
-end)
-
-RegisterNetEvent('qbx_core:client:onPlayerUnloaded', function()
+RegisterNetEvent('qbx_core:client:playerLoggedOut', function()
     isLoggedIn = false
 end)
 
