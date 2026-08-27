@@ -14,15 +14,19 @@ local Config = Config or {}  -- Loaded from shared/config.lua
 -- CLIENT MAIN
 -- ============================================================================
 
--- QBox exposes its client library through shared scripts in fxmanifest.lua.
--- Add '@qbx_core/modules/lib.lua' and '@qbx_core/modules/playerdata.lua' there.
--- Use documented lifecycle events rather than requiring qbx_core directly.
+-- Add this to the resource's fxmanifest.lua before loading this client file:
+-- shared_scripts {
+--     '@qbx_core/modules/lib.lua',
+--     '@qbx_core/modules/playerdata.lua',
+-- }
+-- dependency 'qbx_core'
+-- Use the documented QBox lifecycle events below.
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     isLoggedIn = true
     print('Player loaded!')
 end)
 
-RegisterNetEvent('qbx_core:client:playerLoggedOut', function()
+RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
     isLoggedIn = false
 end)
 

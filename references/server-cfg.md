@@ -21,8 +21,8 @@ Keep licence keys, API keys, webhooks, and database credentials out of version c
 Choose the game build required by your maps, assets, and dependencies. The current build list changes, so do not copy a build number from an old guide without checking the official documentation.
 
 ```cfg
-# Replace with the build your assets require after verifying the current list.
-sv_enforceGameBuild 3751
+# Set this only when a verified build is required by the server's assets.
+# sv_enforceGameBuild <verified-build-number>
 
 # Valid modes: on, off, legacy. Most servers use on.
 onesync on

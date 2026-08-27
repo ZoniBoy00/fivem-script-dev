@@ -13,12 +13,18 @@ Config.DiscordLog = {
     MaxEmbedsPerMessage = 5,    -- Discord limit
 }
 
+-- Server-only convar; never expose webhook secrets to clients.
+local function getWebhook(webhookOverride)
+    if webhookOverride and webhookOverride ~= '' then return webhookOverride end
+    return GetConvar(Config.DiscordLog.WebhookConvar, '')
+end
+
 -- RATE LIMITER
 local LastLogTime = 0
 
 -- CORE: Send embed to Discord
 function SendDiscordEmbed(embedData, webhookOverride)
-    local webhook = webhookOverride or Config.DiscordLog.WebhookURL
+    local webhook = getWebhook(webhookOverride)
     if not webhook or webhook == '' then
         print('[DiscordLog] No webhook URL configured')
         return
@@ -46,7 +52,7 @@ end
 
 -- BATCH: Send multiple embeds in one message
 function SendDiscordEmbeds(embeds, webhookOverride)
-    local webhook = webhookOverride or Config.DiscordLog.WebhookURL
+    local webhook = getWebhook(webhookOverride)
     if not webhook or webhook == '' then return end
     
     -- Discord limit: max 10 embeds per message

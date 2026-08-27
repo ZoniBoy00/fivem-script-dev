@@ -82,7 +82,7 @@ RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     print('Player fully loaded')
 end)
 
-RegisterNetEvent('qbx_core:client:playerLoggedOut', function()
+RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
     print('Player logged out')
 end)
 
