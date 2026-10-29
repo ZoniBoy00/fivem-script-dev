@@ -47,7 +47,7 @@ read_globals = {
 -- fxmanifest directives are globals called with string/table arguments
 files["**/fxmanifest.lua"] = {
     read_globals = {
-        "fx_version", "game", "games", "author", "description", "version", "lua54",
+        "fx_version", "game", "games", "name", "author", "description", "version", "lua54",
         "shared_script", "shared_scripts", "client_script", "client_scripts",
         "server_script", "server_scripts", "ui_page", "file", "files",
         "dependency", "dependencies", "export", "exports", "server_export", "server_exports",

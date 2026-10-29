@@ -132,7 +132,7 @@ Unknown / paid scripts? → references/custom-integrations.md (Config-selected a
 | Shops, doors, vehicles, whitelist | `references/common-patterns.md` |
 | Multi-framework / standalone | `references/standalone-and-bridge.md` |
 | Paid / custom integrations | `references/custom-integrations.md` |
-| NUI | `references/fivem-nui.md` (+ `templates/nui/`) |
+| NUI | `references/fivem-nui.md` (+ `templates/nui/` plain, `templates/nui-vite/` Vite + TypeScript) |
 | Exploit protection, game-event filtering, sandbox | `references/fivem-security.md` |
 | Admin command / ACE | `references/ace-permissions.md` (+ `templates/admin-command.lua`) |
 | OneSync, entities, routing buckets, state bags | `references/onesync.md` |

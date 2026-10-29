@@ -40,3 +40,9 @@ jobs:
         shell: bash
         # FiveM globals and template allowances live in .luacheckrc; any warning fails the build.
         run: luacheck templates
+      - name: Vite NUI template type-check and build
+        shell: bash
+        working-directory: templates/nui-vite/web
+        run: |
+          npm install --no-audit --no-fund
+          npm run build

@@ -232,22 +232,49 @@ RegisterNUICallback('name', function(data, cb) cb({}) end)
 - In-game: F8 → `nui_devtools` (or `nui_devtools mpMenu` for the main menu)
 - Use `console.log()` in JS for client-side debugging
 
-## Modern Build Pipelines
+## Modern Build Pipelines (Vite + TypeScript)
 
-For complex UIs, plain HTML/CSS/JS can become hard to maintain. Many production resources use a bundler:
+Plain HTML/JS (`templates/nui/`) is fine for a small panel. For anything bigger, use Vite + TypeScript: `templates/nui-vite/` is a working scaffold (vanilla TS, ~3 kB built, typed messages and callbacks, browser dev mode with mock data).
 
-- **Vite / webpack** for hot reload, TypeScript, and component frameworks (React, Vue, Svelte).
-- The bundled output (usually `dist/` or `build/`) is what you point `ui_page` to.
-- Keep the final bundle small; NUI runs inside the game's CEF and large JS payloads can cause hitches.
-
-Example `fxmanifest.lua` with a bundled UI:
-
-```lua
-ui_page 'dist/index.html'
-files { 'dist/**/*' }
+```text
+myres/
+├── fxmanifest.lua        ui_page 'web/build/index.html', files { 'web/build/index.html', 'web/build/**/*' }
+├── client.lua            SendNUIMessage({ action, data }) + RegisterNUICallback
+├── server.lua            lib.callback handlers (prices and validation live here)
+└── web/
+    ├── vite.config.ts    base './' (required: NUI loads via nui://), outDir 'build'
+    ├── src/types.ts      Lua ↔ UI contract (NuiMessage union, NuiCallbacks map)
+    ├── src/nui.ts        fetchNui<K>(), onNuiMessage(), debugMessages(), isBrowser
+    └── src/main.ts       UI logic
 ```
 
-You still communicate with FiveM via `SendNUIMessage` and `fetch(.../callbackName)` exactly as shown above.
+Workflow:
+
+| Command (in `web/`) | Use |
+|---|---|
+| `npm run dev` | Browser preview with hot reload; `debugMessages()` fakes Lua messages, `fetchNui` returns its `mock` |
+| `npm run watch` | Rebuild `build/` on save; `restart myres` (or `ensure`) in-game to load it |
+| `npm run build` | Type-check (`tsc --noEmit`) and production build |
+
+Rules:
+
+- `base: './'` is mandatory. Absolute `/assets/...` paths break inside `nui://`.
+- FiveM only serves files listed in `files {}`; ship `web/build/` with the resource. Players never run npm; `node_modules` is never shipped.
+- Keep the message contract in one typed file (`types.ts`) so Lua and UI can't drift silently; mirror the action names in `client.lua`.
+- Type `fetchNui` per callback (see `NuiCallbacks`); the Lua side must still validate every value, because types don't exist at runtime.
+- Write text with `textContent` / framework bindings, never `innerHTML` with server or player data.
+
+### Choosing a UI framework
+
+| Option | Bundle | Use for |
+|---|---|---|
+| Vanilla TypeScript (template default) | Smallest | HUDs, small menus, progress/notify-style UIs |
+| Svelte / Preact | Small | Medium UIs that want components and reactivity |
+| Vue / React | Larger | Big apps (MDT, phone, tablet); React matches ox_lib/ox_inventory's own UIs |
+
+Switch framework without losing the bridge: scaffold with `npm create vite@latest web -- --template react-ts` (or `svelte-ts`, `vue-ts`, `preact-ts`), copy `src/nui.ts` and `src/types.ts` in, set `base: './'` and `build.outDir: 'build'` in `vite.config.ts`. In React, wrap `onNuiMessage` in a `useEffect`.
+
+Avoid heavy component libraries and CDN imports for small UIs; NUI runs in the game's CEF and every kB is parsed on each resource start.
 
 ## Common Patterns
 

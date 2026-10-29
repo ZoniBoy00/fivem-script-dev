@@ -1,0 +1,87 @@
+:root {
+  --bg: rgb(18 18 22 / 0.92);
+  --fg: #f2f2f5;
+  --muted: #9a9aa5;
+  --accent: #4f8cff;
+  font-family: system-ui, sans-serif; /* bundle local font files instead of CDN links */
+  color: var(--fg);
+}
+
+/* The game shows through: never give html/body a background */
+html,
+body {
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(360px, 90vw);
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-header h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.items {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.price {
+  color: var(--muted);
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 12px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+#close {
+  background: transparent;
+  color: var(--muted);
+}
+
+.status {
+  min-height: 1.2em;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}

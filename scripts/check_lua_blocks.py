@@ -12,6 +12,8 @@ import tempfile
 
 LUAC = sys.argv[1] if len(sys.argv) > 1 else "luac"
 FENCE = re.compile(r"^```lua[ \t]*\n(.*?)^```", re.M | re.S)
+# CfxLua compile-time hashes (`adder`) are not stock Lua; check them as a number literal
+HASH = re.compile(r"`[^`\n]+`")
 
 failures = 0
 checked = 0
@@ -23,7 +25,7 @@ for md in sorted(pathlib.Path(".").glob("**/*.md")):
         checked += 1
         line = text.count("\n", 0, match.start()) + 2
         with tempfile.NamedTemporaryFile("w", suffix=".lua", delete=False, encoding="utf-8") as tmp:
-            tmp.write(match.group(1))
+            tmp.write(HASH.sub("0", match.group(1)))
         result = subprocess.run([LUAC, "-p", tmp.name], capture_output=True, text=True)
         pathlib.Path(tmp.name).unlink()
         if result.returncode != 0:

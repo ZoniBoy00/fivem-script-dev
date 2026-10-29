@@ -1,0 +1,2 @@
+node_modules/
+# Commit or release web/build/ only if you ship from git; FiveM needs the built files

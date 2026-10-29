@@ -35,11 +35,12 @@ fivem-script-dev/
 │   ├── error-handling.md             pcall, debugging, defensive code
 │   ├── other-resources.md            Fivemanage, state bags
 │   ├── documentation-and-versioning.md Official-source and freshness checks
-│   └── optimization.md               Variable wait, caching, events
+│   └── optimization.md               Budgets, points/keybinds, cache, networking, NUI
 ├── scripts/check_lua_blocks.py        ← CI syntax check for ```lua blocks
-└── templates/                         ← 9 adaptable templates
+└── templates/                         ← 10 adaptable templates
     ├── fxmanifest.lua                 Universal manifest template
-    ├── nui/                           Full NUI scaffold (client.lua + HTML/CSS/JS)
+    ├── nui/                           Plain NUI scaffold (client.lua + HTML/CSS/JS)
+    ├── nui-vite/                      Vite + TypeScript NUI (typed bridge, dev mode, ox_lib callbacks)
     ├── esx-resource.lua               ESX resource scaffold
     ├── qbcore-resource.lua            QBCore resource scaffold
     ├── qbox-resource.lua              QBox resource scaffold
