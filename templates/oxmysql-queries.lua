@@ -1,132 +1,116 @@
 --[[
-    OxMySQL — Common database query patterns
-    Copy queries from here into your resource as needed
+    oxmysql — common query patterns (server-side)
+
+    fxmanifest.lua:
+        server_scripts { '@oxmysql/lib/MySQL.lua', 'server/main.lua' }
+        dependency 'oxmysql'
+
+    All database access goes through oxmysql's `MySQL` API. Always use `?` placeholders.
+    `.await` calls must run inside a thread or event handler — never at file top level.
+    Everything below is wrapped in functions so copying this file runs nothing by itself.
 ]]
 
--- ============================================================================
--- PLAYER LOADING (playerConnecting)
--- ============================================================================
-
--- Server event handler
-AddEventHandler('playerConnecting', function(name, setKickReason, deferrals)
-    deferrals.defer()
-    Wait(0)
-    
-    local identifiers = GetPlayerIdentifiers(source)
-    local license = nil
-    
-    for _, v in pairs(identifiers) do
-        if string.find(v, 'license:') then
-            license = v
-            break
-        end
-    end
-    
-    if not license then
-        deferrals.done('Could not find license identifier')
-        return
-    end
-    
-    deferrals.update('Loading your data...')
-    Wait(0)
-    
-    -- Load or create player
-    local user = MySQL.single.await('SELECT * FROM users WHERE identifier = ?', {license})
-    
-    if user then
-        -- Returning player (update name/last_seen)
-        MySQL.update.await('UPDATE users SET name = ?, last_seen = NOW() WHERE identifier = ?', {name, license})
-    else
-        -- New player
-        MySQL.insert.await('INSERT INTO users (identifier, name, money, bank) VALUES (?, ?, ?, ?)', {license, name, 500, 0})
-    end
-    
-    deferrals.done()
-end)
+local Db = {}
 
 -- ============================================================================
--- PLAYER SAVING (playerDropped)
+-- SCHEMA (run once on start)
 -- ============================================================================
 
-AddEventHandler('playerDropped', function(reason)
-    local identifiers = GetPlayerIdentifiers(source)
-    local license = nil
-    
-    for _, v in pairs(identifiers) do
-        if string.find(v, 'license:') then
-            license = v
-            break
-        end
-    end
-    
-    if license then
-        -- Save player data
-        local xPlayer = ESX.GetPlayerFromId(source)
-        if xPlayer then
-            MySQL.update.await('UPDATE users SET money = ?, bank = ? WHERE identifier = ?', {
-                xPlayer.getMoney(),
-                xPlayer.getAccount('bank').money,
-                license,
-            })
-        end
-    end
-end)
+function Db.migrate()
+    MySQL.query.await([[
+        CREATE TABLE IF NOT EXISTS myres_players (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            identifier VARCHAR(60) NOT NULL UNIQUE,
+            name VARCHAR(100) NOT NULL,
+            money INT NOT NULL DEFAULT 0,
+            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ]])
+end
+
+-- ============================================================================
+-- PLAYER LOAD / SAVE
+-- ============================================================================
+
+-- Upsert on join: one round-trip, safe against duplicate joins (UNIQUE identifier)
+function Db.loadPlayer(identifier, name)
+    MySQL.insert.await([[
+        INSERT INTO myres_players (identifier, name) VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE name = VALUES(name)
+    ]], { identifier, name })
+
+    return MySQL.single.await('SELECT id, identifier, name, money FROM myres_players WHERE identifier = ?', { identifier })
+end
+
+function Db.savePlayer(identifier, money)
+    return MySQL.update.await('UPDATE myres_players SET money = ? WHERE identifier = ?', { money, identifier })
+end
 
 -- ============================================================================
 -- BASIC CRUD
 -- ============================================================================
 
--- Fetch single row
-MySQL.single.await('SELECT * FROM users WHERE identifier = ?', {identifier})
+function Db.getOne(identifier)
+    return MySQL.single.await('SELECT * FROM myres_players WHERE identifier = ?', { identifier })  -- row or nil
+end
 
--- Fetch multiple rows
-MySQL.query.await('SELECT * FROM items WHERE owner = ?', {owner})
+function Db.getMany(minMoney)
+    return MySQL.query.await('SELECT identifier, money FROM myres_players WHERE money > ?', { minMoney })  -- array
+end
 
--- Insert row
-MySQL.insert.await('INSERT INTO player_data (owner, data_type, value) VALUES (?, ?, ?)', {owner, 'inventory', jsonData})
+function Db.addMoney(identifier, amount)
+    return MySQL.update.await('UPDATE myres_players SET money = money + ? WHERE identifier = ?', { amount, identifier })  -- affected rows
+end
 
--- Update row
-MySQL.update.await('UPDATE users SET money = money + ? WHERE identifier = ?', {amount, identifier})
+function Db.count()
+    return MySQL.scalar.await('SELECT COUNT(*) FROM myres_players')
+end
 
--- Delete row
-MySQL.update.await('DELETE FROM temp_data WHERE expires < NOW()', {})
-
--- ============================================================================
--- UPSERT (Insert or Update)
--- ============================================================================
-
-MySQL.query.await([[
-    INSERT INTO player_items (owner, item, quantity) VALUES (?, ?, ?)
-    ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
-]], {owner, 'water', 1})
+function Db.delete(identifier)
+    return MySQL.update.await('DELETE FROM myres_players WHERE identifier = ?', { identifier })
+end
 
 -- ============================================================================
--- TRANSACTION (Multiple queries atomically)
+-- TRANSACTION (all-or-nothing)
 -- ============================================================================
 
-MySQL.transaction.await({
-    'UPDATE bank SET balance = balance - 100 WHERE id = 1',
-    'UPDATE bank SET balance = balance + 100 WHERE id = 2',
-})
+function Db.transfer(fromIdentifier, toIdentifier, amount)
+    return MySQL.transaction.await({
+        { query = 'UPDATE myres_players SET money = money - ? WHERE identifier = ? AND money >= ?', values = { amount, fromIdentifier, amount } },
+        { query = 'UPDATE myres_players SET money = money + ? WHERE identifier = ?', values = { amount, toIdentifier } },
+    })
+end
 
 -- ============================================================================
--- TABLE CREATION (Auto-migration)
+-- BATCH INSERT (one prepared statement, many parameter sets)
 -- ============================================================================
 
-MySQL.query.await([[
-    CREATE TABLE IF NOT EXISTS my_custom_table (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        owner VARCHAR(60) NOT NULL,
-        data JSON DEFAULT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_owner (owner)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-]])
+function Db.insertMany(rows)
+    -- rows = { { identifier, name }, { identifier, name }, ... }
+    return MySQL.prepare.await('INSERT IGNORE INTO myres_players (identifier, name) VALUES (?, ?)', rows)
+end
 
 -- ============================================================================
--- SCALARS (Single values)
+-- WIRING
 -- ============================================================================
 
-local playerCount = MySQL.scalar.await('SELECT COUNT(*) FROM users', {})
+local players = {}
 
-local totalMoney = MySQL.scalar.await('SELECT SUM(money) FROM users WHERE money > 0', {})
+AddEventHandler('onResourceStart', function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+    Db.migrate()
+end)
+
+AddEventHandler('playerJoining', function()
+    local src = source                                -- final server ID (capture before awaits)
+    local identifier = GetPlayerIdentifierByType(src, 'license')
+    if not identifier then return end
+    players[src] = Db.loadPlayer(identifier, GetPlayerName(src))
+end)
+
+AddEventHandler('playerDropped', function()
+    local src = source
+    local data = players[src]
+    players[src] = nil
+    if data then Db.savePlayer(data.identifier, data.money) end
+end)

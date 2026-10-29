@@ -1,274 +1,171 @@
 --[[
-  ox_inventory Item & Shop Registration Template
-  Stubs, item definitions, shops, crafting, and weapon tints
+  ox_inventory integration template (server-side unless noted)
+  Item definitions, usable-item exports, shops, stashes and crafting.
+  Signatures follow overextended/ox_inventory. Data-file examples are in comments.
 ]]
 
--- 1. ITEM DEFINITION (ox_inventory/data/items.lua)
+-- ============================================================================
+-- 1. ITEM DEFINITIONS (ox_inventory/data/items.lua)
+-- ============================================================================
 --[[
 return {
     ['water'] = {
         label = 'Water Bottle',
-        weight = 500,               -- grams
-        stack = true,               -- Can stack (max 25000 by default)
-        close = true,               -- Close inventory after use
-        description = 'A bottle of clean drinking water'
+        weight = 500,                 -- grams
+        stack = true,
+        close = true,                 -- close inventory on use
+        consume = 1,                  -- removed per use
+        description = 'A bottle of clean drinking water',
+        client = {
+            status = { thirst = 200000 },
+            anim = { dict = 'mp_player_intdrink', clip = 'loop_bottle' },
+            prop = { model = 'prop_ld_flow_bottle', pos = vec3(0.03, 0.03, 0.02), rot = vec3(0.0, 0.0, -1.5) },
+            usetime = 2500,           -- ms
+            cancel = true,
+        },
     },
     ['phone'] = {
         label = 'Mobile Phone',
         weight = 200,
-        stack = false,              -- Unique item
-        close = true,
-        description = 'A standard mobile phone',
-        client = {
-            image = 'phone.png',    -- Custom image in ox_inventory/web/images/
-            usetime = 2.5,          -- Use time in seconds
-            cancel = true,          -- Can cancel use
-            anim = {                -- Animation while using
-                dict = 'anim@heists@box_carry@',
-                clip = 'idle',
-                flag = 49,
-            },
-        },
-        server = {
-            export = 'myresource.usePhone', -- Export called on use
-        }
-    },
-    ['weapon_pistol'] = {
-        label = 'Pistol',
-        weight = 1000,
         stack = false,
         close = true,
-        description = 'A standard semi-automatic pistol',
-        degrade = 60,               -- Degrade ammo count per use
-        ammo = true,                -- Uses ammo system
-        weapon = true,              -- Is a weapon
-    },
-    ['bread'] = {
-        label = 'Bread',
-        weight = 200,
-        stack = true,
-        close = true,
-        description = 'A fresh loaf of bread',
-        buttons = {
-            { label = 'Eat', action = function(slot)
-                TriggerServerEvent('myresource:eatFood', slot.metadata)
-            end },
-        },
-        client = {
-            status = { hunger = 100000 },  -- Restore 10% hunger (ESX/QBCore)
-            anim = { dict = 'mp_player_inteat@burger', clip = 'mp_player_int_eat_burger_fp' },
-            prop = { model = 'prop_cs_burger_01', bone = 18905, pos = { 0.13, 0.05, 0.02 }, rot = { -50.0, 0.0, 0.0 } },
-            usetime = 2.0,
+        consume = 0,                  -- not removed on use
+        server = {
+            export = 'myresource.phone', -- calls exports.myresource:phone(event, item, inventory, slot, data)
         },
     },
 }
 ]]
 
--- Server handler for the 'Eat' button above
-RegisterNetEvent('myresource:eatFood')
-AddEventHandler('myresource:eatFood', function(metadata)
-    if GetInvokingResource() then return end
-    
-    local xPlayer = ESX.GetPlayerFromId(source)  -- ADAPT: your framework
-    if not xPlayer then return end
-    
-    -- ADAPT: validate the item is in player's inventory using metadata if needed
-    -- ADAPT: apply hunger/thirst effects, remove item if ox_inventory doesn't consume it
+-- ============================================================================
+-- 2. USABLE ITEM EXPORTS
+-- ox_inventory has already verified the player owns the item before calling these.
+-- ============================================================================
+
+exports('phone', function(event, item, inventory, slot, data)
+    if event == 'usingItem' then
+        -- Return false to cancel the use (e.g. player is cuffed)
+        return true
+    elseif event == 'usedItem' then
+        TriggerClientEvent('myresource:client:openPhone', inventory.id)  -- inventory.id = player server ID
+    end
 end)
 
--- 2. SHOP DEFINITION (ox_inventory/data/shops.lua)
---[[
-return {
-    -- 24/7 market
-    {
-        name = 'twentyfourseven',
-        label = '24/7 Market',
-        slots = 20,
+-- ============================================================================
+-- 3. SHOPS & STASHES (register once on start; ox_inventory enforces groups/coords)
+-- ============================================================================
+
+AddEventHandler('onResourceStart', function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+
+    exports.ox_inventory:RegisterShop('myres_market', {
+        name = '24/7 Market',
         inventory = {
             { name = 'water', price = 5 },
-            { name = 'bread', price = 3 },
             { name = 'phone', price = 250 },
         },
-        locations = {
-            vector3(25.7, -1347.3, 29.5),   -- Legion Square
-            vector3(-3038.71, 585.9, 7.9),  -- Paleto Bay
-            vector3(1135.808, -982.281, 46.4158), -- Sandy Shores
-        },
-        blip = { id = 59, colour = 0, scale = 0.6 },
-    },
-    
-    -- Weapon shop
-    {
-        name = 'weapon_shop',
-        label = 'Ammu-Nation',
-        slots = 12,
-        inventory = {
-            { name = 'weapon_pistol', price = 5000 },
-            { name = 'pistol_ammo', price = 100, currency = 'ammo' },
-        },
-        locations = {
-            vector3(-662.180, -935.961, 21.829),
-        },
-        groups = {                     -- Only accessible by these jobs
-            police = 0,                -- 0 = any grade
-        },
-        blip = { id = 110, colour = 3, scale = 0.6 },
-    },
-}
-]]
+        locations = { vec3(25.7, -1347.3, 29.5) },
+    })
 
--- 3. WEAPON TINT / COMPONENT / AMMO REGISTRATION
---[[
--- In ox_inventory/data/weapons.lua (or custom resource)
-return {
-    ['WEAPON_PISTOL'] = {
-        label = 'Pistol',
-        weight = 1000,
-        durability = 0.05,          -- Damage per shot
-        ammoname = 'pistol_ammo',    -- Ammo type used
-        ammo = { 'pistol_ammo' },
-        tint = {
-            { id = 0, name = 'Default' },
-            { id = 1, name = 'Green' },
-            { id = 2, name = 'Gold' },
-            { id = 3, name = 'Pink' },
-            { id = 4, name = 'Army' },
-            { id = 5, name = 'LSPD' },
-            { id = 6, name = 'Orange' },
-            { id = 7, name = 'Platinum' },
-        },
-        components = {
-            { name = 'at_pi_flsh',    label = 'Flashlight',  type = 'flashlight' },
-            { name = 'at_pi_supp',    label = 'Suppressor',  type = 'suppressor' },
-            { name = 'at_pi_supp_02', label = 'Suppressor 2',type = 'suppressor' },
-        },
-    },
-}
-]]
+    -- RegisterStash(id, label, slots, maxWeight, owner, groups, coords)
+    exports.ox_inventory:RegisterStash('police_evidence', 'Evidence Locker', 50, 100000, false, { police = 0 }, vec3(474.8, -996.3, 26.3))
+    exports.ox_inventory:RegisterStash('personal_locker', 'Personal Locker', 20, 20000, true)  -- owner = true → one per player
+end)
 
--- 4. CRAFTING (custom resource — wraps ox_inventory)
---[[
-Config.Crafting = {
-    recipes = {
-        {
-            name = 'lockpick',
-            label = 'Lockpick',
-            time = 5000,            -- ms to craft
-            requirements = {
-                { name = 'metalscrap', count = 5 },
-                { name = 'plastic', count = 2 },
-            },
-            result = { name = 'lockpick', count = 1 },
-        },
-        {
-            name = 'armor',
-            label = 'Body Armor',
-            time = 10000,
-            requirements = {
-                { name = 'iron', count = 10 },
-                { name = 'fabric', count = 5 },
-            },
-            result = { name = 'armor', count = 1 },
-        },
-    },
+-- Opening from the server: only after YOUR authorization; never let the client choose size or id
+local Lockers = {
+    personal_locker = { coords = vec3(452.0, -993.0, 30.7), job = nil },
 }
 
--- Server: Craft handler
-RegisterNetEvent('myresource:craftItem', function(recipeName)
+RegisterNetEvent('myresource:server:openLocker', function(lockerId)
     local src = source
-    if not src or type(recipeName) ~= 'string' then return end
-    local recipe = Config.Crafting.recipes[recipeName]
-    if not recipe then return end
-    
-    -- Check requirements
+    if GetInvokingResource() then return end
+
+    local locker = type(lockerId) == 'string' and Lockers[lockerId]
+    if not locker then return end
+    if #(GetEntityCoords(GetPlayerPed(src)) - locker.coords) > 3.0 then return end
+    -- ADAPT: job/permission check if locker.job is set
+
+    exports.ox_inventory:forceOpenInventory(src, 'stash', lockerId)
+end)
+
+-- ============================================================================
+-- 4. CRAFTING (custom; recipes keyed by name)
+-- ============================================================================
+
+local Recipes = {
+    lockpick = {
+        label = 'Lockpick',
+        requirements = { { name = 'metalscrap', count = 5 }, { name = 'plastic', count = 2 } },
+        result = { name = 'lockpick', count = 1 },
+    },
+}
+
+local crafting = {}  -- per-player lock against double requests
+
+RegisterNetEvent('myresource:server:craft', function(recipeName)
+    local src = source
+    if GetInvokingResource() then return end
+    local recipe = type(recipeName) == 'string' and Recipes[recipeName]
+    if not recipe or crafting[src] then return end
+    crafting[src] = true
+
+    local ox = exports.ox_inventory
+
+    -- Check materials and capacity before changing anything
     for _, req in ipairs(recipe.requirements) do
-        local count = exports.ox_inventory:Search(src, 'count', req.name)
-        if count < req.count then
-            TriggerClientEvent('ox_lib:notify', src, { type = 'error', description = 'Missing materials' })
-            return
+        if ox:GetItemCount(src, req.name) < req.count then
+            crafting[src] = nil
+            return TriggerClientEvent('ox_lib:notify', src, { type = 'error', description = 'Missing materials' })
         end
     end
-    
-    -- Check capacity before changing inventory.
-    if not exports.ox_inventory:CanCarryItem(src, recipe.result.name, recipe.result.count) then return end
-
-    -- Verify every removal. High-value crafting should use a transaction or rollback.
-    for _, req in ipairs(recipe.requirements) do
-        local removed = exports.ox_inventory:RemoveItem(src, req.name, req.count)
-        if not removed then return end
+    if not ox:CanCarryItem(src, recipe.result.name, recipe.result.count) then
+        crafting[src] = nil
+        return TriggerClientEvent('ox_lib:notify', src, { type = 'error', description = 'Inventory full' })
     end
 
-    local added = exports.ox_inventory:AddItem(src, recipe.result.name, recipe.result.count)
-    if not added then
-        -- Restore removed materials in production code.
+    -- Remove materials, tracking what was removed so it can be restored
+    local removed = {}
+    for _, req in ipairs(recipe.requirements) do
+        if not ox:RemoveItem(src, req.name, req.count) then
+            for _, r in ipairs(removed) do ox:AddItem(src, r.name, r.count) end
+            crafting[src] = nil
+            return
+        end
+        removed[#removed + 1] = req
+    end
+
+    if not ox:AddItem(src, recipe.result.name, recipe.result.count) then
+        for _, r in ipairs(removed) do ox:AddItem(src, r.name, r.count) end
+        crafting[src] = nil
         return
     end
-    
+
+    crafting[src] = nil
     TriggerClientEvent('ox_lib:notify', src, { type = 'success', description = 'Crafted ' .. recipe.label })
 end)
-]]
 
--- 5. INVENTORY EXPORTS QUICK REFERENCE
+AddEventHandler('playerDropped', function()
+    crafting[source] = nil
+end)
+
+-- ============================================================================
+-- 5. QUICK REFERENCE
+-- ============================================================================
 --[[
--- Check item count
-local count = exports.ox_inventory:Search('count', 'water')
-local count = exports.ox_inventory:Search('count', 'weapon_pistol', { serial = 'ABC123' })
+-- Server
+exports.ox_inventory:GetItemCount(src, 'water')                    -- total count
+exports.ox_inventory:Search(src, 'count', 'water')                 -- same, via Search
+exports.ox_inventory:Search(src, 'slots', 'weapon_pistol', { serial = 'ABC123' })
+exports.ox_inventory:CanCarryItem(src, 'water', 5)
+local ok, resp = exports.ox_inventory:AddItem(src, 'water', 5, { quality = 100 })  -- (inv, item, count, metadata, slot)
+exports.ox_inventory:RemoveItem(src, 'water', 3)
+exports.ox_inventory:GetSlot(src, 1)
+exports.ox_inventory:GetInventoryItems(src)
 
--- Add item
-exports.ox_inventory:AddItem(source, 'water', 5)
-exports.ox_inventory:AddItem(source, 'weapon_pistol', 1, { serial = 'SERIAL123' })
-local success, response = exports.ox_inventory:AddItem(source, 'water', 5)
-
--- Remove item
-exports.ox_inventory:RemoveItem(source, 'water', 3)
-exports.ox_inventory:RemoveItem(source, 'weapon_pistol', 1, { serial = 'SERIAL123' })
-
--- Get item data
-local item = exports.ox_inventory:GetSlot(source, slotIndex)  -- Full slot data
-local items = exports.ox_inventory:GetInventoryItems(source)  -- All items
-
--- Has item
-local hasItem = exports.ox_inventory:Search('count', 'water', nil, source) > 0
-
--- Opening an inventory is a client export. From a server handler, register
--- shops/stashes/crafting data and ask the authorized client to open it.
--- Only use forceOpenInventory after explicit server-side authorization:
-exports.ox_inventory:forceOpenInventory(source, 'shop', { id = 'twentyfourseven' })
-exports.ox_inventory:forceOpenInventory(source, 'stash', { id = 'closet_1' })
-exports.ox_inventory:forceOpenInventory(source, 'crafting', { id = 'crafting_table' })
-
--- Register usable item export
-exports('usePhone', function(data, slot)
-    -- Called when player uses phone item
-    local source = source  -- From export context
-    TriggerClientEvent('myresource:openPhone', source)
-    return true  -- Item consumed
-end)
-]]
-
--- 6. STASH / GLOVEBOX / TRUNK REGISTRATION
---[[
--- In resource where you need persistent storage:
-RegisterNetEvent('myresource:openStash', function(stashId, slots, weight)
-    local src = source
-    -- Each player gets their own stash instance
-    exports.ox_inventory:forceOpenInventory(src, 'stash', {
-        id = ('%s_%s'):format(stashId, GetPlayerIdentifiers(src)[1]),  -- Unique per player
-        label = 'My Stash',
-        slots = slots or 20,
-        weight = weight or 10000,  -- grams (10kg)
-    })
-end)
-
--- Police evidence locker
-RegisterNetEvent('police:openEvidence', function(evidenceId)
-    local src = source
-    exports.ox_inventory:forceOpenInventory(src, 'stash', {
-        id = ('evidence_%s'):format(evidenceId),
-        label = 'Evidence Locker',
-        slots = 50,
-        weight = 50000,
-        owner = false,  -- Anyone with access can take
-    })
-end)
+-- Client (local player only — UI hints, never authorization)
+exports.ox_inventory:Search('count', 'water')
+exports.ox_inventory:GetItemCount('water')
+exports.ox_inventory:openInventory('shop', { type = 'myres_market', id = 1 })
+exports.ox_inventory:openInventory('stash', 'personal_locker')
 ]]

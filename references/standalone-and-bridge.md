@@ -6,126 +6,191 @@
 
 ## 1. Standalone Scripting
 
-Standalone = FiveM natives + Ox ecosystem (ox_lib, oxmysql, ox_inventory). No ESX/QBCore/QBox dependency.
+Standalone = FiveM natives + Ox ecosystem (ox_lib, oxmysql, optionally ox_inventory). No ESX/QBCore/QBox dependency.
 
-### When to Use Standalone
+### When to Use
 
-- Simple scripts (vehicle spawners, door locks, admin tools)
-- Performance-critical resources (no framework overhead)
-- Ox-ecosystem servers (ox_lib + ox_inventory is enough)
-- You want to avoid framework lock-in
+- Simple scripts (spawners, admin tools, minigames)
+- Ox-ecosystem servers where ox_lib + ox_inventory is enough
+- Avoiding framework lock-in
 
 ### fxmanifest
 
 ```lua
-fx_version 'cerulean'; game 'gta5'
+fx_version 'cerulean'
+game 'gta5'
 shared_scripts { '@ox_lib/init.lua' }
 server_scripts { '@oxmysql/lib/MySQL.lua', 'server/main.lua' }
 client_scripts { 'client/main.lua' }
 dependencies { 'ox_lib', 'oxmysql' }
 ```
 
-### Standalone Player Management
+### Standalone Player Sessions
+
+The server ID in `playerConnecting` is **temporary**. Load per-player state in `playerJoining`, where `source` is the final server ID.
 
 ```lua
--- server/main.lua — Simple player session tracker
+-- server/main.lua
 local players = {}
 
-AddEventHandler('playerConnecting', function(name, setKickReason, deferrals)
-    deferrals.defer(); Wait(0)
-    local license = nil
-    for _, v in ipairs(GetPlayerIdentifiers(source)) do
-        if string.find(v, 'license:') then license = v; break end
-    end
-    if not license then deferrals.done('No license'); return end
-    local user = MySQL.single.await('SELECT * FROM users WHERE identifier = ?', {license})
+AddEventHandler('playerJoining', function()
+    local src = source
+    local license = GetPlayerIdentifierByType(src, 'license')
+    if not license then return DropPlayer(src, 'No Rockstar license.') end
+
+    local user = MySQL.single.await('SELECT identifier, name, job FROM users WHERE identifier = ?', { license })
     if not user then
-        MySQL.insert.await('INSERT INTO users (identifier, name) VALUES (?, ?)', {license, name})
-        user = { identifier = license, name = name, money = 500, job = 'unemployed' }
+        local name = GetPlayerName(src)
+        MySQL.insert.await('INSERT INTO users (identifier, name, job) VALUES (?, ?, ?)', { license, name, 'unemployed' })
+        user = { identifier = license, name = name, job = 'unemployed' }
     end
-    players[source] = user
-    deferrals.done()
+
+    players[src] = user
 end)
 
 AddEventHandler('playerDropped', function()
-    local p = players[source]
-    if p then MySQL.update.await('UPDATE users SET money = ? WHERE identifier = ?', {p.money, p.identifier}) end
     players[source] = nil
 end)
 
-exports('GetPlayer', function(source) return players[source] end)
+exports('GetPlayer', function(src) return players[src] end)
 ```
 
 ### Standalone Money via ox_inventory
 
+Use a zero-weight `money` item as the single source of truth — do not also track a separate `money` field.
+
 ```lua
--- Add 'money' as an ox_inventory item with 0 weight
-exports('AddMoney', function(src, amt) exports.ox_inventory:AddItem(src, 'money', amt) end)
-exports('RemoveMoney', function(src, amt) exports.ox_inventory:RemoveItem(src, 'money', amt) end)
-exports('GetMoney', function(src) return exports.ox_inventory:Search('count', 'money', src) end)
+exports('GetMoney', function(src)
+    return exports.ox_inventory:GetItemCount(src, 'money')
+end)
+
+exports('AddMoney', function(src, amount)
+    return exports.ox_inventory:AddItem(src, 'money', amount)
+end)
+
+exports('RemoveMoney', function(src, amount)
+    if exports.ox_inventory:GetItemCount(src, 'money') < amount then return false end
+    return exports.ox_inventory:RemoveItem(src, 'money', amount)
+end)
 ```
 
 ---
 
 ## 2. Multi-Framework Bridge
 
-One script, multiple frameworks. Detect at runtime, use correct API.
+One script, multiple frameworks. Detect once at load and expose a small, uniform API.
 
-### Framework Detection
+Detection at file load only works when the framework starts **before** your resource — list it earlier in `server.cfg`.
+
+### Framework Detection (server/bridge.lua)
 
 ```lua
--- shared/bridge.lua
-local Framework = { type = nil }
+local Bridge = { type = 'standalone' }
 
-CreateThread(function()
-    if GetResourceState('qbx_core') == 'started' then Framework = { type = 'qbox', res = exports.qbx_core }
-    elseif GetResourceState('qb-core') == 'started' then Framework = { type = 'qbcore', res = exports['qb-core']:GetCoreObject() }
-    elseif GetResourceState('es_extended') == 'started' then Framework = { type = 'esx', res = ESX }
-    else Framework = { type = 'standalone' } end
-    print('[Bridge] Detected:', Framework.type)
-end)
+if GetResourceState('qbx_core') == 'started' then
+    Bridge.type = 'qbox'
+elseif GetResourceState('qb-core') == 'started' then
+    Bridge.type = 'qbcore'
+    Bridge.QBCore = exports['qb-core']:GetCoreObject()
+elseif GetResourceState('es_extended') == 'started' then
+    Bridge.type = 'esx'
+    Bridge.ESX = exports.es_extended:getSharedObject()
+end
+
+print(('[%s] Framework bridge: %s'):format(GetCurrentResourceName(), Bridge.type))
 ```
 
 ### Unified Player Wrapper
 
+Every money/item function returns `true`/`false` so callers can roll back.
+
 ```lua
-function GetPlayerSafe(source)
-    if Framework.type == 'esx' then
-        local x = ESX.GetPlayerFromId(source); if not x then return nil end
-        return { source = source, identifier = x.identifier, job = x.getJob(), money = x.getMoney(),
-                 addMoney = function(a) x.addMoney(a) end, removeMoney = function(a) x.removeMoney(a) end,
-                 addItem = function(i,c) x.addInventoryItem(i,c) end, removeItem = function(i,c) x.removeInventoryItem(i,c) end }
-    elseif Framework.type == 'qbcore' then
-        local p = QBCore.Functions.GetPlayer(source); if not p then return nil end
-        return { source = source, identifier = p.PlayerData.citizenid, job = p.PlayerData.job, money = p.PlayerData.money.cash,
-                 addMoney = function(a) p.Functions.AddMoney('cash', a) end, removeMoney = function(a) p.Functions.RemoveMoney('cash', a) end,
-                 addItem = function(i,c) p.Functions.AddItem(i,c) end, removeItem = function(i,c) p.Functions.RemoveItem(i,c) end }
-    elseif Framework.type == 'qbox' then
-        local p = exports.qbx_core:GetPlayer(source); if not p then return nil end
-        return { source = source, identifier = p.PlayerData.citizenid, job = p.PlayerData.job,
-                 addMoney = function(a) p.Functions.AddMoney('cash', a) end, removeMoney = function(a) p.Functions.RemoveMoney('cash', a) end,
-                 addItem = function(i,c) exports.ox_inventory:AddItem(source,i,c) end, removeItem = function(i,c) exports.ox_inventory:RemoveItem(source,i,c) end }
-    else -- standalone
-        local p = players[source]; if not p then return nil end
-        return { source = source, identifier = p.identifier, money = p.money,
-                 addMoney = function(a) p.money = p.money + a; exports.ox_inventory:AddItem(source,'money',a) end,
-                 removeMoney = function(a) p.money = p.money - a; exports.ox_inventory:RemoveItem(source,'money',a) end,
-                 addItem = function(i,c) exports.ox_inventory:AddItem(source,i,c) end, removeItem = function(i,c) exports.ox_inventory:RemoveItem(source,i,c) end }
+local function hasOx() return GetResourceState('ox_inventory') == 'started' end
+
+function Bridge.GetPlayer(src)
+    if Bridge.type == 'esx' then
+        local x = Bridge.ESX.GetPlayerFromId(src)
+        if not x then return nil end
+        return {
+            source = src,
+            identifier = x.getIdentifier(),
+            job = x.getJob().name,
+            getMoney = function() return x.getMoney() end,
+            addMoney = function(a) x.addMoney(a, GetCurrentResourceName()); return true end,
+            removeMoney = function(a) return x.removeMoney(a, GetCurrentResourceName()) end,
+            canCarry = function(i, c) return x.canCarryItem(i, c) end,
+            addItem = function(i, c) x.addInventoryItem(i, c); return true end,
+            removeItem = function(i, c)
+                local item = x.getInventoryItem(i)
+                if not item or item.count < c then return false end
+                x.removeInventoryItem(i, c)
+                return true
+            end,
+        }
+    elseif Bridge.type == 'qbcore' then
+        local p = Bridge.QBCore.Functions.GetPlayer(src)
+        if not p then return nil end
+        local inv = exports['qb-inventory']
+        return {
+            source = src,
+            identifier = p.PlayerData.citizenid,
+            job = p.PlayerData.job.name,
+            getMoney = function() return p.PlayerData.money.cash end,
+            addMoney = function(a) return p.Functions.AddMoney('cash', a, GetCurrentResourceName()) end,
+            removeMoney = function(a) return p.Functions.RemoveMoney('cash', a, GetCurrentResourceName()) end,
+            canCarry = function(i, c) return (inv:CanAddItem(src, i, c)) end,
+            addItem = function(i, c) return inv:AddItem(src, i, c, false, false, GetCurrentResourceName()) end,
+            removeItem = function(i, c) return inv:RemoveItem(src, i, c, false, GetCurrentResourceName()) end,
+        }
+    elseif Bridge.type == 'qbox' then
+        local p = exports.qbx_core:GetPlayer(src)
+        if not p then return nil end
+        return {
+            source = src,
+            identifier = p.PlayerData.citizenid,
+            job = p.PlayerData.job.name,
+            getMoney = function() return p.PlayerData.money.cash end,
+            addMoney = function(a) return exports.qbx_core:AddMoney(src, 'cash', a, GetCurrentResourceName()) end,
+            removeMoney = function(a) return exports.qbx_core:RemoveMoney(src, 'cash', a, GetCurrentResourceName()) end,
+            canCarry = function(i, c) return exports.ox_inventory:CanCarryItem(src, i, c) end,
+            addItem = function(i, c) return (exports.ox_inventory:AddItem(src, i, c)) end,
+            removeItem = function(i, c) return (exports.ox_inventory:RemoveItem(src, i, c)) end,
+        }
     end
+
+    -- standalone (requires ox_inventory)
+    if not hasOx() then return nil end
+    return {
+        source = src,
+        identifier = GetPlayerIdentifierByType(src, 'license'),
+        getMoney = function() return exports.ox_inventory:GetItemCount(src, 'money') end,
+        addMoney = function(a) return (exports.ox_inventory:AddItem(src, 'money', a)) end,
+        removeMoney = function(a)
+            if exports.ox_inventory:GetItemCount(src, 'money') < a then return false end
+            return (exports.ox_inventory:RemoveItem(src, 'money', a))
+        end,
+        canCarry = function(i, c) return exports.ox_inventory:CanCarryItem(src, i, c) end,
+        addItem = function(i, c) return (exports.ox_inventory:AddItem(src, i, c)) end,
+        removeItem = function(i, c) return (exports.ox_inventory:RemoveItem(src, i, c)) end,
+    }
 end
 ```
 
-### Unified Notifications
+> When ESX runs with `Config.CustomInventory = 'ox'`, `xPlayer` item methods already route to ox_inventory, so the ESX branch works unchanged.
+
+### Unified Notifications (server → client)
 
 ```lua
-function NotifyPlayer(source, type, msg)
-    local t = { success = 'success', error = 'error', info = 'info', warning = 'warning' }
-    if Framework.type == 'esx' and GetResourceState('ox_lib') ~= 'started' then
-        TriggerClientEvent('esx:showNotification', source, msg)
-    elseif Framework.type == 'qbcore' then
-        TriggerClientEvent('QBCore:Notify', source, msg, t[type] or 'info')
+function Bridge.Notify(src, msg, notifyType)
+    notifyType = notifyType or 'inform'
+    if GetResourceState('ox_lib') == 'started' and Bridge.type ~= 'qbcore' then
+        TriggerClientEvent('ox_lib:notify', src, { type = notifyType, description = msg })
+    elseif Bridge.type == 'esx' then
+        TriggerClientEvent('esx:showNotification', src, msg, notifyType == 'inform' and 'info' or notifyType)
+    elseif Bridge.type == 'qbcore' then
+        TriggerClientEvent('QBCore:Notify', src, msg, notifyType == 'inform' and 'primary' or notifyType)
     else
-        TriggerClientEvent('ox_lib:notify', source, { type = t[type] or 'info', description = msg })
+        TriggerClientEvent('chat:addMessage', src, { args = { msg } })
     end
 end
 ```
@@ -138,27 +203,37 @@ end
 my-script/
 ├── fxmanifest.lua
 ├── shared/config.lua
-├── shared/bridge.lua        ← Framework detection + unified API
-├── client/main.lua          ← Uses ox_lib only (framework-agnostic)
-└── server/main.lua          ← Uses GetPlayerSafe() for all framework ops
+├── server/bridge.lua        ← Framework detection + unified API
+├── server/main.lua          ← Uses Bridge.GetPlayer() for all framework ops
+└── client/main.lua          ← ox_lib only (framework-agnostic)
 ```
-
-### fxmanifest
 
 ```lua
-fx_version 'cerulean'; game 'gta5'
-shared_scripts { '@ox_lib/init.lua', 'shared/config.lua', 'shared/bridge.lua' }
+fx_version 'cerulean'
+game 'gta5'
+shared_scripts { '@ox_lib/init.lua', 'shared/config.lua' }
 client_scripts { 'client/main.lua' }
-server_scripts { '@oxmysql/lib/MySQL.lua', 'server/main.lua' }
+server_scripts { '@oxmysql/lib/MySQL.lua', 'server/bridge.lua', 'server/main.lua' }
 ```
+
+> `bridge.lua` defines the global `Bridge` on purpose (shared by `server/main.lua`). Keep everything else local.
 
 ### Server Example — Works on All Frameworks
 
 ```lua
 lib.callback.register('myscript:buyItem', function(source, itemName)
-    local player = GetPlayerSafe(source)  -- ← Bridge handles ESX/QB/QBox/Standalone
+    local item = type(itemName) == 'string' and Config.Items[itemName]
+    if not item then return false end
+
+    local player = Bridge.GetPlayer(source)
     if not player then return false end
-    -- ... item validation, money check via player.removeMoney(), add via player.addItem()
+
+    if not player.canCarry(itemName, 1) then return false end
+    if not player.removeMoney(item.price) then return false end
+    if not player.addItem(itemName, 1) then
+        player.addMoney(item.price)  -- refund
+        return false
+    end
     return true
 end)
 ```
@@ -169,18 +244,17 @@ end)
 
 | API Call | ESX | QBCore | QBox | Standalone |
 |----------|-----|--------|------|------------|
-| Get player | `ESX.GetPlayerFromId(src)` | `QBCore.Functions.GetPlayer(src)` | `exports.qbx_core:GetPlayer(src)` | `players[src]` |
-| Add money | `xPlayer.addMoney(n)` | `Player.Functions.AddMoney('cash', n)` | `player.Functions.AddMoney('cash', n)` | `ox_inventory:AddItem(src,'money',n)` |
-| Remove money | `xPlayer.removeMoney(n)` | `Player.Functions.RemoveMoney('cash', n)` | `player.Functions.RemoveMoney('cash', n)` | `ox_inventory:RemoveItem(src,'money',n)` |
-| Add item | `xPlayer.addInventoryItem(n,c)` | `Player.Functions.AddItem(n,c)` | `ox_inventory:AddItem(src,n,c)` | `ox_inventory:AddItem(src,n,c)` |
-| Notify | `esx:showNotification` | `QBCore:Notify` | `ox_lib` | `ox_lib` |
+| Get player | `ESX.GetPlayerFromId(src)` | `QBCore.Functions.GetPlayer(src)` | `exports.qbx_core:GetPlayer(src)` | own table keyed in `playerJoining` |
+| Add money | `xPlayer.addMoney(n, reason)` | `Player.Functions.AddMoney('cash', n, reason)` | `exports.qbx_core:AddMoney(src, 'cash', n, reason)` | `ox_inventory:AddItem(src, 'money', n)` |
+| Remove money | `xPlayer.removeMoney(n, reason)` → bool | `Player.Functions.RemoveMoney('cash', n, reason)` → bool | `exports.qbx_core:RemoveMoney(src, 'cash', n, reason)` → bool | check count, then `RemoveItem` |
+| Add item | `xPlayer.addInventoryItem(n, c)` | `exports['qb-inventory']:AddItem(src, n, c)` | `ox_inventory:AddItem(src, n, c)` | `ox_inventory:AddItem(src, n, c)` |
+| Notify | `esx:showNotification` | `QBCore:Notify` | `ox_lib:notify` | `ox_lib:notify` |
 | Callback | `ESX.RegisterServerCallback` | `QBCore.Functions.CreateCallback` | `lib.callback.register` | `lib.callback.register` |
-| Inventory | ESX built-in or ox_inventory | qb-inventory or ox_inventory | ox_inventory | ox_inventory |
 
 ## 5. Best Practices
 
-1. **Ox ecosystem first** — ox_lib + ox_inventory work on ALL frameworks
-2. **Bridge at the top** — Detect once on start, use bridge functions everywhere
-3. **Never trust `source` from client events** — Validate server-side regardless of framework
-4. **Fall back to Ox** — ox_lib notifications and callbacks work universally
-5. **Test on all targets** — behavior differs (e.g. QBCore money vs ox_inventory money)
+1. **Detect once** — at load, with the framework started earlier in `server.cfg`.
+2. **Return booleans** from every money/item wrapper and roll back on failure.
+3. **Capture `source`** as `src` before any yield.
+4. **Validate server-side** regardless of framework.
+5. **Test on every target** — inventories differ in metadata, weight and stacking.

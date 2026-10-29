@@ -4,6 +4,8 @@
 
 QBCore uses a `Player` object (capital P) for server-side player management.
 
+> Verified against current `qbcore-framework/qb-core` and `qb-inventory`. **Item functions moved out of the Player object**: use `exports['qb-inventory']:*` (older guides showing `Player.Functions.AddItem` target older qb-core versions).
+
 ### Framework Initialization
 
 **Client:**
@@ -44,9 +46,11 @@ end)
 ```lua
 local QBCore = exports['qb-core']:GetCoreObject()
 
--- In event handler, source = triggering player
-local Player = QBCore.Functions.GetPlayer(source)
-if not Player then return end  -- Always validate!
+RegisterNetEvent('myres:server:doThing', function()
+    local src = source                         -- capture before any yield
+    local Player = QBCore.Functions.GetPlayer(src)
+    if not Player then return end              -- Always validate!
+end)
 ```
 
 ## Key Principles
@@ -54,9 +58,10 @@ if not Player then return end  -- Always validate!
 1. **Always check for nil** — `if Player then ... end`
 2. **Use `QBCore.Functions.GetPlayer(source)`** — standard retrieval
 3. **Never trust client** — validate everything server-side
-4. **Use ox_lib for UI** — over qb-menu/qb-input
+4. **Use the server's UI stack** — QBCore defaults (`QBCore.Functions.Notify`, qb-menu/qb-input); ox_lib only if installed
 5. **Use event-driven updates** — avoid polling PlayerData
 6. **Don't modify qb-core files** — use exports/events
+7. **Check return values** — `RemoveMoney` and `exports['qb-inventory']:RemoveItem` return `false` on failure
 
 ## Get Player
 
@@ -74,7 +79,7 @@ local Player = QBCore.Functions.GetPlayerByPhone(phoneNumber)
 local Player = QBCore.Functions.GetPlayerByLicense(license)
 
 -- Offline player by citizenid
-local offlineData = QBCore.Functions.GetOfflinePlayer(citizenId)
+local offline = QBCore.Functions.GetOfflinePlayerByCitizenId(citizenId)
 
 -- All online players
 local players = QBCore.Functions.GetPlayers()
@@ -89,33 +94,33 @@ local identifier = QBCore.Functions.GetIdentifier(source, 'license')
 
 ```lua
 Player.Functions.AddMoney('cash', amount, 'reason')
-Player.Functions.RemoveMoney('cash', amount, 'reason')
-Player.Functions.AddMoney('bank', amount)
-Player.Functions.RemoveMoney('bank', amount)
-Player.Functions.AddMoney('crypto', amount)
+local ok = Player.Functions.RemoveMoney('cash', amount, 'reason')  -- false if insufficient
+Player.Functions.AddMoney('bank', amount, 'reason')
+local ok = Player.Functions.RemoveMoney('bank', amount, 'reason')
 
 -- Access player money table
 local cash = Player.PlayerData.money['cash']
 local bank = Player.PlayerData.money['bank']
 ```
 
-### Items (qb-inventory)
+### Items (qb-inventory exports, server)
 
 ```lua
-Player.Functions.AddItem(itemName, amount, slot, info)
--- slot = nil (auto), info = { metadata }
-Player.Functions.RemoveItem(itemName, amount, slot)
--- Returns the item table or false
+local inv = exports['qb-inventory']
 
-local item = Player.Functions.GetItemByName(itemName)
--- Returns { name, amount, info, label, slot, type, image, ... } or nil
+local canAdd, reason = inv:CanAddItem(src, 'water', 2)      -- false, 'weight' | 'slots' on failure
+local added = inv:AddItem(src, 'water', 2, false, { quality = 100 }, 'myres:reward')
+local removed = inv:RemoveItem(src, 'water', 1, false, 'myres:used')
 
-local items = Player.Functions.GetItems()
--- Returns table of all items indexed by slot
+local item = inv:GetItemByName(src, 'water')    -- first matching slot or nil
+local count = inv:GetItemCount(src, 'water')    -- total amount
+local has = inv:HasItem(src, 'water', 1)
 
--- Check if player can carry item
-local canCarry = Player.Functions.CanAddItem(itemName, amount)
+-- Show the item box animation on the client
+TriggerClientEvent('qb-inventory:client:ItemBox', src, QBCore.Shared.Items['water'], 'add', 2)
 ```
+
+> Never expose a client event that adds or removes items. Grant items only from validated server logic.
 
 ### Jobs
 
@@ -188,13 +193,9 @@ print(charinfo.backstory)        -- Optional
 
 ## QBCore Events
 
-### Client-Side Events
+### Client-Side
 
 ```lua
--- Trigger server event
-TriggerServerEvent('QBCore:Server:AddItem', itemName, amount)
-TriggerServerEvent('QBCore:Server:RemoveItem', itemName, amount)
-
 -- QBCore callback (client → server with return)
 QBCore.Functions.TriggerCallback('myres:server:getData', function(result)
     if result then
@@ -213,15 +214,15 @@ QBCore.Functions.Notify('Message', 'success')  -- 'success', 'error', 'primary',
 QBCore.Functions.CreateCallback('myres:server:getData', function(source, cb, arg1)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then cb(false) return end
-    
+
     cb({ success = true, data = Player.PlayerData })
 end)
 
--- Progress item usage
+-- Usable item
 QBCore.Functions.CreateUseableItem('lockpick', function(source, item)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return end
-    
+
     TriggerClientEvent('myres:useLockpick', source)
 end)
 
@@ -244,13 +245,9 @@ AddEventHandler('QBCore:Server:PlayerUnload', function(playerId)
     -- Clean up
 end)
 
--- Item use
-RegisterNetEvent('QBCore:Server:UseItem')
-AddEventHandler('QBCore:Server:UseItem', function(item)
-    local Player = QBCore.Functions.GetPlayer(source)
-    -- Handle item usage
-end)
 ```
+
+Item usage goes through `QBCore.Functions.CreateUseableItem` (registered once at resource start). Do not register client-triggerable "use item" events.
 
 ## QBCore Client Functions
 
@@ -258,25 +255,23 @@ end)
 -- Notify
 QBCore.Functions.Notify('Message', 'success', 5000)  -- (text, type, duration_ms)
 
--- Draw text (3D world space)
+-- Draw text (3D world space, per frame)
 QBCore.Functions.DrawText3D(x, y, z, 'Text')
+
+-- Screen text UI (qb-core)
+exports['qb-core']:DrawText('[E] Open', 'left')
+exports['qb-core']:HideText()
 
 -- Get player data
 local data = QBCore.Functions.GetPlayerData()
 
--- Progressbar (qb-progress or custom)
-exports['qb-progress']:Progress({
-    name = 'task_name',
-    duration = 5000,
-    label = 'Working...',
-    useWhileDead = false,
-    canCancel = true,
-    controlDisables = { disableMovement = true, disableCarMovement = true },
-    animation = { dict = 'mini@repair', clip = 'fixing_a_ped' },
-}, function(cancelled)
-    if not cancelled then
-        print('Task complete!')
-    end
+-- Progressbar (requires the `progressbar` resource)
+QBCore.Functions.Progressbar('repair', 'Repairing...', 5000, false, true, {
+    disableMovement = true, disableCarMovement = true, disableMouse = false, disableCombat = true,
+}, { animDict = 'mini@repair', anim = 'fixing_a_ped', flags = 16 }, {}, {}, function()
+    -- finished
+end, function()
+    -- cancelled
 end)
 ```
 
@@ -287,7 +282,7 @@ end)
 QBCore.Commands.Add('car', 'Spawn a vehicle', {{ name='model', help='Vehicle model' }}, true, function(source, args)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return end
-    
+
     TriggerClientEvent('myres:spawnVehicle', source, args[1])
 end, 'admin')  -- 'admin', 'user', or a permission string
 
@@ -296,7 +291,7 @@ QBCore.Commands.Add('goto', 'Teleport to player', {{ name='id', help='Player ID'
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return end
     if not QBCore.Functions.HasPermission(source, 'admin') then return end
-    
+
     TriggerClientEvent('myres:gotoPlayer', source, tonumber(args[1]))
 end)
 ```
@@ -310,10 +305,11 @@ print(QBCore.Shared.Jobs['police'].label)        -- 'Police'
 print(QBCore.Shared.Vehicles['adder'].name)      -- 'Adder'
 print(QBCore.Shared.Gangs['ballas'].label)       -- 'Ballas'
 
--- Update shared data from server
-QBCore.Functions.AddItem(name, data)             -- Add new item
-QBCore.Functions.AddJob(name, data)              -- Add new job
-QBCore.Functions.AddVehicle(name, data)          -- Add new vehicle
+-- Register shared definitions at runtime (server) — these add item/job/gang DEFINITIONS,
+-- they do NOT give anything to a player
+QBCore.Functions.AddItem(name, data)
+QBCore.Functions.AddJob(name, data)
+QBCore.Functions.AddGang(name, data)
 ```
 
 ## QBCore Best Practices
@@ -323,7 +319,7 @@ QBCore.Functions.AddVehicle(name, data)          -- Add new vehicle
 3. **CreateUseableItem pattern** for item usage instead of manual event handling
 4. **Minimize global variables** — keep everything in local scope
 5. **Cache PlayerData** in local variables when accessed frequently
-6. **Use ox_lib for UI** — modern replacement for qb-menu/qb-input
+6. **Items via `exports['qb-inventory']`** — check `CanAddItem` before `AddItem`, check `RemoveItem`'s return value
 7. **Validate permissions server-side** before executing admin commands
 
 ## QBCore Documentation

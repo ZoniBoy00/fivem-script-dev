@@ -1,6 +1,7 @@
 # OxMySQL — Database Queries
 
-> SQL integration for FiveM. Server-side only. Use MariaDB over MySQL 8 for best compatibility.
+> All database access goes through **oxmysql** (the `MySQL.*` global it provides via `@oxmysql/lib/MySQL.lua`). Don't use other MySQL libraries or raw drivers in resources.
+> Server-side only. `.await` variants must run inside a thread or event handler (not at file top level).
 > Docs: https://overextended.dev/oxmysql
 
 ## Setup
@@ -136,14 +137,13 @@ MySQL.query.await([[
 ### Player data save/load
 
 ```lua
--- Load player on join
-local data = MySQL.single.await('SELECT * FROM users WHERE identifier = ?', {identifier})
-if data then
-    -- Player exists, load data
-    return data
-else
-    -- New player, create
+-- Load player on join (inside a function / handler)
+local function loadUser(identifier, playerName)
+    local data = MySQL.single.await('SELECT * FROM users WHERE identifier = ?', {identifier})
+    if data then return data end
+
     local id = MySQL.insert.await('INSERT INTO users (identifier, name) VALUES (?, ?)', {identifier, playerName})
+    return { id = id, identifier = identifier, name = playerName }
 end
 
 -- Save player on disconnect
@@ -153,7 +153,7 @@ MySQL.update.await('UPDATE users SET money = ?, inventory = ? WHERE identifier =
 ### Upsert pattern
 
 ```lua
--- Insert or update (MySQL)
+-- Insert or update via oxmysql (requires a UNIQUE key on identifier)
 MySQL.query.await([[
     INSERT INTO users (identifier, name, money) VALUES (?, ?, ?)
     ON DUPLICATE KEY UPDATE name = VALUES(name), money = money + VALUES(money)
@@ -162,10 +162,14 @@ MySQL.query.await([[
 
 ### Bulk insert
 
+Don't await one query per row in a loop. `MySQL.prepare` accepts an array of parameter sets and executes them as one batch:
+
 ```lua
-for _, item in pairs(items) do
-    MySQL.insert.await('INSERT INTO player_items (owner, item, quantity) VALUES (?, ?, ?)', {owner, item.name, item.qty})
+local rows = {}
+for i = 1, #items do
+    rows[i] = { owner, items[i].name, items[i].qty }
 end
+MySQL.prepare.await('INSERT INTO player_items (owner, item, quantity) VALUES (?, ?, ?)', rows)
 ```
 
 ## Links

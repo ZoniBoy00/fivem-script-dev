@@ -1,38 +1,34 @@
 # Common FiveM Script Patterns
 
-> Battle-tested patterns using the **Ox ecosystem** (ox_lib, oxmysql, ox_inventory, ox_target). Framework-specific parts marked with `-- ADAPT:`.
+> Patterns using the **Ox ecosystem** (ox_lib, oxmysql, ox_inventory, ox_target). Framework-specific lines are marked `-- ADAPT:`; ESX is used as the example framework.
 
-> **🔒 Security note:** These examples place non-sensitive coordinates (shops, doors, duty points) in shared `Config`. If you build drug spots, hidden stashes, heist locations, or similar, store their coordinates **server-side only** and send them to the client only when the player is nearby.
+> **🔒 Security note:** These examples keep non-sensitive coordinates (shops, doors, duty points) in shared `Config`. For drug spots, hidden stashes, heist locations and similar, keep coordinates **server-side only** and send them to a client only when needed.
 
 ---
 
 ## 1. Item Shop (ox_lib + ox_inventory)
 
-### Config
+### Config (shared)
 ```lua
-Config.ShopItems = {
-    { name = 'water',  label = 'Water',  price = 5 },
-    { name = 'bread',  label = 'Bread',  price = 3 },
-    { name = 'phone',  label = 'Phone',  price = 250 },
+Config.ShopCoords = vector3(100.0, 200.0, 30.0)
+Config.ShopItems = {            -- keyed by item name → O(1) server lookup
+    water = { label = 'Water', price = 5 },
+    bread = { label = 'Bread', price = 3 },
+    phone = { label = 'Phone', price = 250 },
 }
 ```
 
 ### Client
 ```lua
--- ox_lib zone
 lib.zones.box({
-    coords = vector3(100.0, 200.0, 30.0),
+    coords = Config.ShopCoords,
     size = vector3(3.0, 3.0, 2.0),
-    onEnter = function() lib.showTextUI('[E] - Open Shop') end,
+    onEnter = function() lib.showTextUI('[E] - Buy water') end,
     onExit = function() lib.hideTextUI() end,
     inside = function()
         if IsControlJustPressed(0, 38) then
-            local result = lib.callback.await('myres:buyItem', false, 'water')
-            if result.success then
-                lib.notify({ type = 'success', description = result.message })
-            else
-                lib.notify({ type = 'error', description = result.error })
-            end
+            local result = lib.callback.await('myres:buyItem', false, 'water', 1)
+            lib.notify({ type = result.success and 'success' or 'error', description = result.message })
         end
     end,
 })
@@ -40,249 +36,284 @@ lib.zones.box({
 
 ### Server
 ```lua
-lib.callback.register('myres:buyItem', function(source, itemName)
-    -- 1. Get player
-    local xPlayer = ESX.GetPlayerFromId(source)  -- ADAPT: use your framework
-    if not xPlayer then return { success = false, error = 'Player not found' } end
+local MAX_QTY = 10
 
-    -- 2. Validate item and price from SERVER config (never trust client price)
-    local itemData = nil
-    for _, v in ipairs(Config.ShopItems) do if v.name == itemName then itemData = v; break end end
-    if not itemData then return { success = false, error = 'Invalid item' } end
-
-    -- 3. Validate player can afford it and remove money server-side
-    if xPlayer.getMoney() < itemData.price then
-        return { success = false, error = 'Not enough money' }
-    end
-    xPlayer.removeMoney(itemData.price)
-
-    -- 4. Validate inventory space
-    if not exports.ox_inventory:CanCarryItem(source, itemName, 1) then
-        return { success = false, error = 'Inventory full' }
+lib.callback.register('myres:buyItem', function(source, itemName, quantity)
+    -- 1. Validate input types and ranges
+    if type(itemName) ~= 'string' then return { success = false, message = 'Invalid item' } end
+    quantity = math.tointeger(quantity)
+    if not quantity or quantity < 1 or quantity > MAX_QTY then
+        return { success = false, message = 'Invalid amount' }
     end
 
-    -- 5. Give item
-    exports.ox_inventory:AddItem(source, itemName, 1)
-    return { success = true, message = itemData.label .. ' purchased!' }
+    -- 2. Price comes from SERVER config only
+    local itemData = Config.ShopItems[itemName]
+    if not itemData then return { success = false, message = 'Invalid item' } end
+    local total = itemData.price * quantity
+
+    -- 3. Player + location
+    local xPlayer = ESX.GetPlayerFromId(source)  -- ADAPT: your framework
+    if not xPlayer then return { success = false, message = 'Player not found' } end
+    if #(GetEntityCoords(GetPlayerPed(source)) - Config.ShopCoords) > 5.0 then
+        return { success = false, message = 'Too far away' }
+    end
+
+    -- 4. Capacity BEFORE taking money
+    if not exports.ox_inventory:CanCarryItem(source, itemName, quantity) then
+        return { success = false, message = 'Inventory full' }
+    end
+
+    -- 5. Take money; removeMoney returns false if the balance is too low
+    if not xPlayer.removeMoney(total, 'shop purchase') then  -- ADAPT
+        return { success = false, message = 'Not enough money' }
+    end
+
+    -- 6. Give item; refund if it fails
+    local added = exports.ox_inventory:AddItem(source, itemName, quantity)
+    if not added then
+        xPlayer.addMoney(total, 'shop refund')  -- ADAPT
+        return { success = false, message = 'Could not add item' }
+    end
+
+    return { success = true, message = ('%dx %s purchased'):format(quantity, itemData.label) }
 end)
 ```
+
+> `lib.callback` handlers run per request. Add a per-player cooldown (see `fivem-security.md`) for anything players can spam.
 
 ---
 
 ## 2. Door Lock System
 
 ```lua
--- Config
+-- Config (shared)
 Config.Doors = {
-    { id = 'police_front', coords = vector3(434.7, -982.1, 30.7), model = 'v_ilev_ph_door002', locked = true, job = 'police' },
+    { id = 'police_front', coords = vector3(434.7, -982.1, 30.7), model = joaat('v_ilev_ph_door002'), locked = true, job = 'police' },
 }
+```
 
--- Client: ox_target interaction
-CreateThread(function()
-    for _, door in ipairs(Config.Doors) do
-        exports.ox_target:addModel(door.model, {
-            { name = 'toggle_'..door.id,
-              label = door.locked and 'Unlock' or 'Lock',
-              distance = 2.5,
-              onSelect = function() TriggerServerEvent('myres:toggleDoor', door.id) end },
-        })
-    end
-end)
+```lua
+-- Server: authoritative state replicated through GlobalState
+local doorsById = {}
+for _, door in ipairs(Config.Doors) do
+    doorsById[door.id] = door
+    GlobalState['door:' .. door.id] = door.locked
+end
 
--- Server
-local doorStates = {}
-CreateThread(function() for _, d in ipairs(Config.Doors) do doorStates[d.id] = d.locked end end)
+RegisterNetEvent('myres:server:toggleDoor', function(doorId)
+    local src = source
+    local door = type(doorId) == 'string' and doorsById[doorId]
+    if not door then return end
 
-RegisterNetEvent('myres:toggleDoor')
-AddEventHandler('myres:toggleDoor', function(doorId)
-    if GetInvokingResource() then return end
-    
-    local xPlayer = ESX.GetPlayerFromId(source)  -- ADAPT: use your framework
+    local xPlayer = ESX.GetPlayerFromId(src)  -- ADAPT: your framework
     if not xPlayer then return end
-    
-    -- Validate door exists
-    local doorConfig = nil; for _, d in ipairs(Config.Doors) do if d.id == doorId then doorConfig = d; break end end
-    if not doorConfig then return end
-    
-    -- Job check (e.g. only police can toggle police doors)
-    if doorConfig.job and xPlayer.getJob().name ~= doorConfig.job then
-        return
-    end
-    
-    -- Distance check
-    local coords = GetEntityCoords(GetPlayerPed(source))
-    if #(coords - doorConfig.coords) > 5.0 then return end
-    
-    doorStates[doorId] = not doorStates[doorId]
-    TriggerClientEvent('myres:syncDoor', -1, doorId, doorStates[doorId])
+    if door.job and xPlayer.getJob().name ~= door.job then return end
+
+    if #(GetEntityCoords(GetPlayerPed(src)) - door.coords) > 3.0 then return end
+
+    GlobalState['door:' .. door.id] = not GlobalState['door:' .. door.id]
 end)
 ```
 
+```lua
+-- Client: one target option per model; label reflects current state
+for _, door in ipairs(Config.Doors) do
+    exports.ox_target:addModel(door.model, {
+        {
+            name = 'myres:door:' .. door.id,
+            label = 'Lock / Unlock',
+            icon = 'fa-solid fa-door-closed',
+            distance = 2.0,
+            canInteract = function(entity)
+                return #(GetEntityCoords(entity) - door.coords) < 1.5
+            end,
+            onSelect = function() TriggerServerEvent('myres:server:toggleDoor', door.id) end,
+        },
+    })
+end
+
+-- Apply state changes to the door entity
+local doorsById = {}
+for _, door in ipairs(Config.Doors) do doorsById[door.id] = door end
+
+AddStateBagChangeHandler('', 'global', function(_, key, locked)
+    local doorId = key:match('^door:(.+)$')
+    local door = doorId and doorsById[doorId]
+    if not door then return end
+
+    local entity = GetClosestObjectOfType(door.coords.x, door.coords.y, door.coords.z, 1.5, door.model, false, false, false)
+    if entity ~= 0 then FreezeEntityPosition(entity, locked) end
+end)
+```
+
+> For production doors, prefer an existing door resource (e.g. ox_doorlock) that uses the game's door system (`AddDoorToSystem`) instead of freezing entities.
+
 ---
 
-## 3. Vehicle Spawner
+## 3. Vehicle Spawner (server-side, OneSync)
+
+Spawn gameplay vehicles on the server so clients cannot create arbitrary networked entities (pair with `sv_entityLockdown`, see `onesync.md`).
 
 ```lua
 -- Server
-lib.addCommand('car', { help = 'Spawn vehicle', params = { { name = 'model', type = 'string' } } }, function(source, args)
-    local model = args.model or 'adder'
-    -- ADAPT: permission + money check here
-    TriggerClientEvent('myres:client:spawnVehicle', source, model)
-end)
+Config.AllowedVehicles = { adder = true, police = true }
 
--- Client
-RegisterNetEvent('myres:client:spawnVehicle')
-AddEventHandler('myres:client:spawnVehicle', function(model)
-    RequestModel(model); while not HasModelLoaded(model) do Wait(100) end
-    local coords = GetEntityCoords(PlayerPedId())
-    local veh = CreateVehicle(model, coords.x + 2, coords.y + 2, coords.z, GetEntityHeading(PlayerPedId()), true, false)
-    SetPedIntoVehicle(PlayerPedId(), veh, -1)
-    SetModelAsNoLongerNeeded(model)
+lib.addCommand('car', {
+    help = 'Spawn vehicle',
+    params = { { name = 'model', type = 'string' } },
+    restricted = 'group.admin',
+}, function(source, args)
+    local model = args.model:lower()
+    if not Config.AllowedVehicles[model] then return end
+
+    local ped = GetPlayerPed(source)
+    local coords = GetEntityCoords(ped)
+    local veh = CreateVehicleServerSetter(joaat(model), 'automobile', coords.x + 2.0, coords.y, coords.z, GetEntityHeading(ped))
+
+    local timeoutAt = GetGameTimer() + 5000
+    while not DoesEntityExist(veh) and GetGameTimer() < timeoutAt do Wait(0) end
+    if not DoesEntityExist(veh) then return end
+
+    SetPedIntoVehicle(ped, veh, -1)
+    Entity(veh).state:set('spawnedBy', source, true)
 end)
 ```
 
+> `CreateVehicleServerSetter` needs the correct vehicle type (`automobile`, `bike`, `boat`, `heli`, `plane`, `submarine`, `trailer`, `train`). Map it from the model in config for non-car vehicles.
+
 ---
 
-## 4. Whitelist (playerConnecting)
+## 4. Whitelist / Ban Check (playerConnecting)
 
 ```lua
 AddEventHandler('playerConnecting', function(name, setKickReason, deferrals)
-    deferrals.defer(); Wait(0)
-    local ids = GetPlayerIdentifiers(source); local steamId = nil
-    for _, v in ipairs(ids) do if string.find(v, 'steam:') then steamId = v; break end end
-    if not steamId then deferrals.done('Steam required'); return end
+    local src = source                                   -- capture BEFORE any yield
+    deferrals.defer()
+    Wait(0)
 
-    local banned = MySQL.single.await('SELECT * FROM bans WHERE identifier = ? AND (expires IS NULL OR expires > NOW())', {steamId})
-    if banned then deferrals.done('Banned: ' .. (banned.reason or 'N/A')); return end
+    local license = GetPlayerIdentifierByType(src, 'license')
+    if not license then return deferrals.done('No Rockstar license found.') end
+
+    deferrals.update('Checking whitelist...')
+
+    local ban = MySQL.single.await('SELECT reason FROM bans WHERE identifier = ? AND (expires IS NULL OR expires > NOW())', { license })
+    if ban then return deferrals.done('Banned: ' .. (ban.reason or 'N/A')) end
 
     if Config.WhitelistEnabled then
-        local wl = MySQL.single.await('SELECT * FROM whitelist WHERE identifier = ?', {steamId})
-        if not wl then deferrals.done('Not whitelisted'); return end
+        local wl = MySQL.scalar.await('SELECT 1 FROM whitelist WHERE identifier = ?', { license })
+        if not wl then return deferrals.done('Not whitelisted.') end
     end
 
-    MySQL.rawExecute('INSERT IGNORE INTO users (identifier, name) VALUES (?, ?)', {steamId, name})
     deferrals.done()
 end)
 ```
 
+> `src` here is a temporary connection ID. Create per-player runtime state in `playerJoining` or the framework's "player loaded" event, not in `playerConnecting`.
+
 ---
 
-## 5. Basic Anti-Cheat
+## 5. Basic Server-Side Anti-Abuse
 
 ```lua
--- Health check (periodic)
-CreateThread(function()
-    while true do Wait(10000)
-        for _, id in ipairs(GetPlayers()) do
-            local ped = GetPlayerPed(id)
-            if DoesEntityExist(ped) and GetEntityHealth(ped) > GetEntityMaxHealth(ped) + 50 then
-                DropPlayer(id, 'Health manipulation')
-            end
-        end
+-- Explosion spam / blacklisted explosion types (server event)
+local lastExplosion = {}
+local BLOCKED_TYPES = { [29] = true }  -- ADAPT: explosion type IDs you never expect from players
+
+AddEventHandler('explosionEvent', function(sender, ev)
+    local src = tonumber(sender)
+    if not src then return end
+
+    if BLOCKED_TYPES[ev.explosionType] then
+        CancelEvent()
+        -- ADAPT: log / ban through your anti-cheat
+        return
+    end
+
+    local now = GetGameTimer()
+    if lastExplosion[src] and now - lastExplosion[src] < 500 then
+        CancelEvent()
+        return
+    end
+    lastExplosion[src] = now
+end)
+
+AddEventHandler('playerDropped', function()
+    lastExplosion[source] = nil
+end)
+```
+
+> Server-side heuristics only catch obvious abuse. Use a dedicated anti-cheat for mod menus; the most effective general measures are server authority, server-side spawns and `sv_entityLockdown strict`.
+
+---
+
+## 6. Item Usage (ox_inventory export)
+
+```lua
+-- ox_inventory/data/items.lua
+-- ['water'] = { label = 'Water', weight = 500, client = { anim = {...}, usetime = 2500 }, server = { export = 'myres.water' } },
+```
+
+```lua
+-- Server: ox_inventory calls this; it has already checked that the player owns the item
+Config.UsableItems = { water = { thirst = 30 } }
+
+exports('water', function(event, item, inventory, slot, data)
+    if event == 'usedItem' then
+        local src = inventory.id
+        local effect = Config.UsableItems.water
+        -- ADAPT: apply effect through your framework's status system
+        TriggerClientEvent('myres:client:drank', src, effect.thirst)
     end
 end)
-
--- Explosive spam
-local lastExp = {}
-AddEventHandler('gameEventTriggered', function(name, args)
-    if name ~= 'CEventExplosion' then return end
-    local src = NetworkGetPlayerIndexFromPed(args[1]); if not src then return end
-    local now = GetGameTimer()
-    if lastExp[src] and now - lastExp[src] < 500 then DropPlayer(src, 'Exploit'); return end
-    lastExp[src] = now
-end)
 ```
 
----
-
-## 6. Item Usage (ox_inventory + ox_lib)
-
-```lua
--- Config
-Config.UsableItems = {
-    ['water'] = { usageTime = 3000, anim = { dict = 'mp_player_intdrink', clip = 'loop_bottle' }, effects = { thirst = 30 } },
-}
-
--- Server
-for itemName in pairs(Config.UsableItems) do
-    exports.ox_inventory:registerUsableItem(itemName, function(source, item)
-        TriggerClientEvent('myres:useItem', source, itemName)
-    end)
-end
-
--- Client reports that the usage animation finished
-RegisterNetEvent('myres:itemUsed')
-AddEventHandler('myres:itemUsed', function(itemName)
-    if GetInvokingResource() then return end
-    
-    -- Validate the item is actually registered as usable
-    if not Config.UsableItems[itemName] then return end
-    
-    -- ADAPT: apply effects (hunger/thirst/stress), remove item if needed
-    -- Note: ox_inventory usually consumes the item automatically if configured with consume = 1
-end)
-
--- Client
-RegisterNetEvent('myres:useItem')
-AddEventHandler('myres:useItem', function(itemName)
-    local cfg = Config.UsableItems[itemName]; if not cfg then return end
-    local completed = lib.progressBar({ duration = cfg.usageTime, label = 'Using ' .. itemName .. '...', canCancel = true, anim = cfg.anim })
-    if completed then TriggerServerEvent('myres:itemUsed', itemName) end
-end)
-```
+> Never let the client report "I finished using item X" as the only proof. The server-side callback above runs only after ox_inventory validated and consumed the item.
 
 ---
 
 ## 7. Job Clock In/Out
 
 ```lua
--- Config
+-- Config (shared)
 Config.DutyLocations = {
     { coords = vector3(441.1, -981.1, 30.7), job = 'police', label = 'Police Station' },
 }
+```
 
--- Client
-local nearDuty = false
-CreateThread(function()
-    while true do
-        local sleep = 1500; local coords = GetEntityCoords(PlayerPedId())
-        nearDuty = false
-        for _, loc in ipairs(Config.DutyLocations) do
-            if #(coords - loc.coords) < 5.0 then
-                sleep = 0; nearDuty = true
-                lib.showTextUI('[E] - ' .. loc.label, { position = 'left-center' })
-                if IsControlJustPressed(0, 38) then
-                    local result = lib.callback.await('myres:toggleDuty', false)
-                    lib.notify({ type = result and 'success' or 'error', description = result and 'Duty toggled' or 'Failed' })
-                end
-                break
+```lua
+-- Client: one zone per location, no polling loop
+for _, loc in ipairs(Config.DutyLocations) do
+    lib.zones.sphere({
+        coords = loc.coords,
+        radius = 2.0,
+        onEnter = function() lib.showTextUI('[E] - Toggle duty') end,
+        onExit = function() lib.hideTextUI() end,
+        inside = function()
+            if IsControlJustPressed(0, 38) then
+                local ok = lib.callback.await('myres:toggleDuty', false)
+                lib.notify({ type = ok and 'success' or 'error', description = ok and 'Duty toggled' or 'Not allowed here' })
             end
-        end
-        if not nearDuty then lib.hideTextUI() end
-        Wait(sleep)
-    end
-end)
+        end,
+    })
+end
+```
 
+```lua
 -- Server
 lib.callback.register('myres:toggleDuty', function(source)
-    if GetInvokingResource() then return false end
-    
-    local xPlayer = ESX.GetPlayerFromId(source)  -- ADAPT: use your framework
+    local xPlayer = ESX.GetPlayerFromId(source)  -- ADAPT: your framework
     if not xPlayer then return false end
-    
-    -- Find nearest duty location and validate job
-    local playerCoords = GetEntityCoords(GetPlayerPed(source))
-    local validLocation = nil
+
+    local coords = GetEntityCoords(GetPlayerPed(source))
+    local job = xPlayer.getJob()
     for _, loc in ipairs(Config.DutyLocations) do
-        if #(playerCoords - loc.coords) < 5.0 and xPlayer.getJob().name == loc.job then
-            validLocation = loc
-            break
+        if loc.job == job.name and #(coords - loc.coords) < 3.0 then
+            -- ADAPT: ESX 1.16: xPlayer.setJob(job.name, job.grade, not job.onDuty)
+            --        QBCore:   Player.Functions.SetJobDuty(not Player.PlayerData.job.onduty)
+            return true
         end
     end
-    if not validLocation then return false end
-    
-    -- ADAPT: toggle duty via framework
-    return true
+    return false
 end)
 ```
 
@@ -290,17 +321,16 @@ end)
 
 ## Security Checklist
 
-- [ ] Server validates ALL data from client (amounts, IDs, distances, item names)
-- [ ] Rate limiting on all state-changing events
-- [ ] `GetInvokingResource()` on every sensitive event
-- [ ] Server-side distance validation for physical interactions
-- [ ] Sensitive coords (drug spots, stashes) stored server-side; sent only when nearby
-- [ ] Money/items transactions only server-side
-- [ ] `IsPlayerAceAllowed()` for admin commands
+- [ ] `local src = source` at the top of every server handler
+- [ ] Server validates all client data (types, ranges, item names, distances)
+- [ ] Prices/totals computed server-side; never accepted from the client
+- [ ] Capacity checked before money is taken; failed adds are refunded
+- [ ] Rate limiting on state-changing events/callbacks
+- [ ] Server-side distance checks for physical interactions
+- [ ] Gameplay entities spawned server-side; `sv_entityLockdown` configured
+- [ ] Sensitive coords stored server-side
+- [ ] ACE/framework permission checks in every admin command
 - [ ] All SQL uses `?` placeholders
-- [ ] ox_lib callbacks always return a response
-- [ ] Loop wait times are appropriate (not all `Wait(0)`)
-- [ ] Player object validated before use
-- [ ] ox_inventory space checked before adding items
-- [ ] Export calls wrapped in `pcall` or guarded with `GetResourceState()` check
-- [ ] `RegisterNetEvent` called once at top level, never inside a loop or thread
+- [ ] ox_lib callbacks always return a value
+- [ ] Optional exports guarded with `GetResourceState()`
+- [ ] `RegisterNetEvent` called once at file scope

@@ -5,7 +5,7 @@
 
 -- Resource metadata
 fx_version 'cerulean'                   -- Always use latest version
-game 'gta5'                             -- 'gta5', 'rdr3', or 'common'
+game 'gta5'                             -- FiveM (GTA V)
 -- Note: lua54 'yes' is no longer needed — Lua 5.4 is the only runtime since June 2025
 
 author 'Your Name'
@@ -27,9 +27,9 @@ client_scripts {
 
 -- Server scripts (run once on the server)
 server_scripts {
+    -- '@oxmysql/lib/MySQL.lua',        -- Enable if using oxmysql (must come before your own scripts)
     'server/main.lua',
     'server/database.lua',
-    -- '@oxmysql/lib/MySQL.lua',        -- Enable if using oxmysql (NOTE: before own scripts!)
 }
 
 -- NUI (only if your resource has an HTML UI)
@@ -44,12 +44,8 @@ server_scripts {
 --     'oxmysql',
 -- }
 
--- Exports (functions other resources can call)
--- exports {
---     'getData',
---     'setData',
--- }
--- server_export 'getServerData'
+-- Exports: prefer runtime exports in your scripts — exports('getData', function() ... end)
+-- The manifest forms (exports { ... } / server_export '...') only work with global functions.
 
 -- Data files (only if adding custom game data)
 -- data_file 'VEHICLE_METADATA_FILE' 'data/vehicles.meta'

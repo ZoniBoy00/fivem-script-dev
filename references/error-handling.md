@@ -6,8 +6,8 @@
 
 1. **Never assume it works** — Check return values, nil guards, type checks
 2. **Log everything in dev** — Strip logs for production, but keep critical errors
-3. **pcall everything fallible** — DB queries, HTTP requests, network operations
-4. **Protect the event chain** — One error shouldn't crash the resource
+3. **pcall at boundaries** — optional exports, JSON decoding of external data, third-party callbacks
+4. **Errors are already isolated** — an error in one event handler or thread does not stop the resource; it is printed and that handler ends. Don't wrap everything in pcall just to hide errors.
 
 ---
 
@@ -50,23 +50,17 @@ end
 
 ### pcall in Event Handlers
 
-Always wrap event handler bodies to prevent one bad event from crashing the resource:
+FiveM already catches errors per handler. Use pcall inside a handler only when you must **clean up or roll back** after a failure:
 
 ```lua
-RegisterNetEvent('myres:server:doThing', function(...)
+RegisterNetEvent('myres:server:craft', function(recipeId)
+    local src = source                      -- capture OUTSIDE the pcall'd function
     if GetInvokingResource() then return end
-    
-    local success, err = pcall(function()
-        local src = source
-        local xPlayer = ESX.GetPlayerFromId(src)
-        if not xPlayer then return end
-        
-        -- Actual logic
-        xPlayer.addMoney(100)
-    end)
-    
-    if not success then
-        print(('[%s] Error in myres:server:doThing: %s'):format(GetCurrentResourceName(), err))
+
+    local ok, err = pcall(doCraft, src, recipeId)
+    if not ok then
+        refundMaterials(src, recipeId)      -- rollback
+        print(('[%s] craft failed for %s: %s'):format(GetCurrentResourceName(), src, err))
     end
 end)
 ```
@@ -156,13 +150,13 @@ local function safeExport(resource, exportName, ...)
         print(('[ERROR] Resource %s is not started'):format(resource))
         return nil
     end
-    
+
     local ok, result = pcall(exports[resource][exportName], exports[resource], ...)
     if not ok then
         print(('[ERROR] Export %s:%s failed: %s'):format(resource, exportName, tostring(result)))
         return nil
     end
-    
+
     return result
 end
 
@@ -179,7 +173,7 @@ local count = safeExport('ox_inventory', 'Search', source, 'count', 'water')
 ```lua
 -- Print to F8 console (visible to that player only)
 print('[^2INFO^7] Debug message')  -- ^2 = green, ^7 = reset
-print(('^3WARNING^7: Player at %s is too far'):format(coords))
+print(('^3WARNING^7: Player at %s is too far'):format(tostring(coords)))
 
 -- Dump table contents
 for k, v in pairs(someTable) do
@@ -233,10 +227,10 @@ end, false)  -- false = not restricted (client-side only anyway)
 
 ## Best Practices Summary
 
-1. **Wrap ALL event handlers** in pcall to prevent cascading failures
+1. **Use pcall where you need rollback or optional dependencies**, not as a blanket wrapper
 2. **Never chain callbacks** without error checking between each
 3. **Log with context** — include source, function name, and relevant values
 4. **Strip debug prints** for production or use a config toggle
 5. **Use assert() for critical preconditions** — vehicle creation, model loading
-6. **Always provide a timeout** on HTTP requests and DB queries
+6. **Bound every wait loop** — model/entity/state waits need a deadline (`GetGameTimer() + ms`)
 7. **Don't suppress errors silently** — even if you handle it, log it

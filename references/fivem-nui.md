@@ -61,9 +61,9 @@ RegisterNUICallback('buyItem', function(data, cb)
     -- The server must re-validate everything (item, price, quantity, money).
     local itemName = data.itemName
     local quantity = tonumber(data.quantity) or 1
-    
+
     TriggerServerEvent('shop:server:purchase', itemName, quantity)
-    
+
     -- Don't claim success here — the server will send its own feedback.
     cb({ received = true })
 end)
@@ -109,7 +109,7 @@ end)
 // Listen for messages from the game
 window.addEventListener('message', (event) => {
     const data = event.data;
-    
+
     switch (data.type) {
         case 'openMenu':
             openShop(data.data);
@@ -126,10 +126,10 @@ window.addEventListener('message', (event) => {
 function openShop(shopData) {
     document.getElementById('shop-ui').classList.remove('hidden');
     document.getElementById('shop-title').textContent = shopData.title;
-    
+
     const container = document.getElementById('items-container');
     container.innerHTML = '';
-    
+
     shopData.items.forEach(item => {
         const div = document.createElement('div');
         div.className = 'shop-item';
@@ -229,7 +229,7 @@ RegisterNUICallback('name', function(data, cb) cb({}) end)
 
 ## Developer Tools
 
-- In-game: open the F8 console and type `nui_devTools` from a client in developer mode
+- In-game: F8 → `nui_devtools` (or `nui_devtools mpMenu` for the main menu)
 - Use `console.log()` in JS for client-side debugging
 
 ## Modern Build Pipelines
@@ -277,7 +277,7 @@ end)
 
 **Symptom:** NUI loads (callbacks work, logs show messages) but the screen is black — the UI is "there" but invisible. Classic FiveM/CEF issue.
 
-**Root cause:** CEF (the Chromium wrapper FiveM uses) composites a **fallback opaque layer** behind the UI. If `html`/`body` don't have an explicit transparent background, or the CSS forces a new compositing layer (`backdrop-filter`, heavy `box-shadow`, large `border-radius`), CEF draws a solid black rounded rectangle as the fallback instead of letting the game render through.
+**Likely cause (community-observed, not officially documented):** CEF (the Chromium wrapper FiveM uses) composites a **fallback opaque layer** behind the UI. If `html`/`body` don't have an explicit transparent background, or the CSS forces a new compositing layer (`backdrop-filter`, heavy `box-shadow`, large `border-radius`), CEF draws a solid black rounded rectangle as the fallback instead of letting the game render through.
 
 **Fixes (apply in this order):**
 
@@ -305,7 +305,7 @@ html, body {
 
 4. If the black rectangle persists **only around a rounded element**, it's the fallback layer showing through — flatten the radii or remove the shadow on that element.
 
-**Verification:** after the fix, open the UI — the game world should be visible through any transparent areas. Debug with `nui_devTools` (F8 → `nui_devTools`) and check the Computed styles: `html`/`body` must show `background: rgba(0, 0, 0, 0)`.
+**Verification:** after the fix, open the UI — the game world should be visible through any transparent areas. Debug with F8 → `nui_devtools` and check the Computed styles: `html`/`body` must show `background: rgba(0, 0, 0, 0)`.
 
 ## Pitfalls
 

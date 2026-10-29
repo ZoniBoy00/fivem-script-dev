@@ -1,114 +1,126 @@
 --[[
-  Discord Webhook Logger Template
-  Rich embed support with rate limiting
+  Discord Webhook Logger Template (server-side)
+  Rich embeds, a send queue that respects Discord rate limits, and mention suppression.
+  The webhook URL is read from a server-only convar:
+      set myresource_discord_webhook "https://discord.com/api/webhooks/<id>/<token>"
 ]]
 
 -- CONFIG
 Config = Config or {}
 Config.DiscordLog = {
-    WebhookConvar = 'myresource_discord_webhook', -- set server-side; never commit the URL
+    WebhookConvar = 'myresource_discord_webhook', -- server-only; never commit the URL, never use setr
     BotName = 'My Server Logger',
-    BotAvatar = 'https://i.imgur.com/yourlogo.png',
-    RateLimit = 1000,           -- ms between messages
-    MaxEmbedsPerMessage = 5,    -- Discord limit
+    BotAvatar = '',             -- optional image URL
+    SendInterval = 1000,        -- ms between requests (Discord allows ~5 requests / 2 s per webhook)
+    MaxEmbedsPerMessage = 10,   -- Discord limit
+    MaxQueue = 200,             -- drop oldest beyond this to bound memory
 }
 
--- Server-only convar; never expose webhook secrets to clients.
 local function getWebhook(webhookOverride)
     if webhookOverride and webhookOverride ~= '' then return webhookOverride end
     return GetConvar(Config.DiscordLog.WebhookConvar, '')
 end
 
--- RATE LIMITER
-local LastLogTime = 0
+-- QUEUE: messages are sent in order by one worker thread instead of being dropped
+local queue = {}
+local workerRunning = false
 
--- CORE: Send embed to Discord
+local function startWorker()
+    if workerRunning then return end
+    workerRunning = true
+    CreateThread(function()
+        while #queue > 0 do
+            local job = table.remove(queue, 1)
+            local retryAfter = 0
+            local p = promise.new()
+            PerformHttpRequest(job.webhook, function(status, _, headers)
+                if status == 429 then
+                    retryAfter = (tonumber(headers and (headers['Retry-After'] or headers['retry-after'])) or 2) * 1000
+                    table.insert(queue, 1, job)  -- retry this message first
+                elseif status ~= 200 and status ~= 204 then
+                    print(('[DiscordLog] Request failed: %s'):format(status or 'unknown'))
+                end
+                p:resolve(true)
+            end, 'POST', json.encode(job.payload), { ['Content-Type'] = 'application/json' })
+            Citizen.Await(p)
+            Wait(math.max(Config.DiscordLog.SendInterval, retryAfter))
+        end
+        workerRunning = false
+    end)
+end
+
+local function enqueue(webhook, embeds)
+    if #queue >= Config.DiscordLog.MaxQueue then table.remove(queue, 1) end
+    queue[#queue + 1] = {
+        webhook = webhook,
+        payload = {
+            username = Config.DiscordLog.BotName,
+            avatar_url = Config.DiscordLog.BotAvatar ~= '' and Config.DiscordLog.BotAvatar or nil,
+            embeds = embeds,
+            allowed_mentions = { parse = {} },  -- player names like "@everyone" must not ping
+        },
+    }
+    startWorker()
+end
+
+-- CORE: Send one embed
 function SendDiscordEmbed(embedData, webhookOverride)
     local webhook = getWebhook(webhookOverride)
-    if not webhook or webhook == '' then
+    if webhook == '' then
         print('[DiscordLog] No webhook URL configured')
         return
     end
-    
-    local now = GetGameTimer()
-    if now - LastLogTime < Config.DiscordLog.RateLimit then
-        print('[DiscordLog] Rate limited — message skipped')
-        return
-    end
-    LastLogTime = now
-    
-    local payload = {
-        username = Config.DiscordLog.BotName,
-        avatar_url = Config.DiscordLog.BotAvatar,
-        embeds = { embedData }
-    }
-    
-    PerformHttpRequest(webhook, function(err, text, headers)
-        if err ~= 204 and err ~= 200 then
-            print(('[DiscordLog] Failed to send embed: %s'):format(err or 'unknown'))
-        end
-    end, 'POST', json.encode(payload), { ['Content-Type'] = 'application/json' })
+    enqueue(webhook, { embedData })
 end
 
--- BATCH: Send multiple embeds in one message
+-- BATCH: Send multiple embeds (chunked to Discord's per-message limit)
 function SendDiscordEmbeds(embeds, webhookOverride)
     local webhook = getWebhook(webhookOverride)
-    if not webhook or webhook == '' then return end
-    
-    -- Discord limit: max 10 embeds per message
-    local chunks = {}
-    for i = 1, #embeds, Config.DiscordLog.MaxEmbedsPerMessage do
-        table.insert(chunks, { table.unpack(embeds, i, i + Config.DiscordLog.MaxEmbedsPerMessage - 1) })
+    if webhook == '' then return end
+
+    local size = Config.DiscordLog.MaxEmbedsPerMessage
+    for i = 1, #embeds, size do
+        enqueue(webhook, { table.unpack(embeds, i, math.min(i + size - 1, #embeds)) })
     end
-    
-    for _, chunk in ipairs(chunks) do
-        local payload = {
-            username = Config.DiscordLog.BotName,
-            avatar_url = Config.DiscordLog.BotAvatar,
-            embeds = chunk
-        }
-        
-        PerformHttpRequest(webhook, function(err, text, headers)
-            if err ~= 204 and err ~= 200 then
-                print(('[DiscordLog] Batch failed: %s'):format(err or 'unknown'))
-            end
-        end, 'POST', json.encode(payload), { ['Content-Type'] = 'application/json' })
-        
-        -- Wait between chunks to avoid rate limiting
-        Wait(500)
-    end
+end
+
+-- Discord rejects empty field values and strings over its limits
+local function clip(value, max)
+    value = tostring(value or 'N/A')
+    if value == '' then value = 'N/A' end
+    return #value > max and value:sub(1, max - 3) .. '...' or value
 end
 
 -- HELPER: Build embed table
 function BuildEmbed(config)
     local embed = {
-        title = config.title or '',
-        description = config.description or '',
+        title = clip(config.title, 256),
+        description = clip(config.description, 4096),
         color = config.color or 0x3498db,       -- Default blue
         timestamp = os.date('!%Y-%m-%dT%H:%M:%SZ'),
         footer = config.footer or { text = 'FiveM Logger' },
     }
-    
+
     -- Fields
     if config.fields and #config.fields > 0 then
         embed.fields = config.fields
     end
-    
+
     -- Author
     if config.author then
         embed.author = config.author
     end
-    
+
     -- Thumbnail
     if config.thumbnail then
         embed.thumbnail = { url = config.thumbnail }
     end
-    
+
     -- Image
     if config.image then
         embed.image = { url = config.image }
     end
-    
+
     return embed
 end
 
@@ -116,31 +128,27 @@ end
 
 -- Player action (join/leave/kill)
 function LogPlayerAction(source, action, details)
-    local name = GetPlayerName(source)
-    local identifiers = GetPlayerIdentifiers(source)
-    local steam = ''
-    for _, id in ipairs(identifiers) do
-        if id:match('steam:') then steam = id break end
-    end
-    
+    local name = GetPlayerName(source) or 'unknown'
+    local license = GetPlayerIdentifierByType(source, 'license') or 'N/A'
+
     local colors = {
         join = 0x2ecc71,       -- Green
         leave = 0xe74c3c,      -- Red
         kill = 0xe67e22,        -- Orange
     }
-    
+
     local embed = BuildEmbed({
         title = ('Player %s'):format(action:sub(1,1):upper()..action:sub(2)),
-        description = details or ('%s (%s)'):format(name, steam),
+        description = details or ('%s (%s)'):format(name, license),
         color = colors[action] or 0x3498db,
         fields = {
-            { name = 'Player', value = name, inline = true },
+            { name = 'Player', value = clip(name, 1024), inline = true },
             { name = 'Source', value = tostring(source), inline = true },
-            { name = 'Steam', value = steam or 'N/A', inline = false },
+            { name = 'License', value = license, inline = false },
         },
         footer = { text = 'Player Logger' },
     })
-    
+
     SendDiscordEmbed(embed)
 end
 
@@ -153,7 +161,7 @@ function LogServerEvent(eventName, description, fields)
         fields = fields or {},
         footer = { text = 'Server Logger' },
     })
-    
+
     SendDiscordEmbed(embed)
 end
 
@@ -161,19 +169,19 @@ end
 function LogAdminAction(adminSource, targetSource, action, reason)
     local adminName = GetPlayerName(adminSource)
     local targetName = GetPlayerName(targetSource)
-    
+
     local embed = BuildEmbed({
         title = ('Admin Action: %s'):format(action:sub(1,1):upper()..action:sub(2)),
         description = reason or 'No reason provided',
         color = 0xe74c3c,       -- Red
         fields = {
-            { name = 'Admin', value = adminName, inline = true },
-            { name = 'Target', value = targetName, inline = true },
-            { name = 'Reason', value = reason or 'N/A', inline = false },
+            { name = 'Admin', value = clip(adminName, 1024), inline = true },
+            { name = 'Target', value = clip(targetName, 1024), inline = true },
+            { name = 'Reason', value = clip(reason, 1024), inline = false },
         },
         footer = { text = 'Admin Logger' },
     })
-    
+
     SendDiscordEmbed(embed)
 end
 
@@ -190,7 +198,7 @@ function LogError(source, errorMsg, context)
         },
         footer = { text = 'Error Logger' },
     })
-    
+
     SendDiscordEmbed(embed)
 end
 

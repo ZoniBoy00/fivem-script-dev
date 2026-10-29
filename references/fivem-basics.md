@@ -26,7 +26,7 @@ my-resource/
 
 ```lua
 fx_version 'cerulean'          -- Latest (2020-05+)
-game 'gta5'                    -- 'gta5', 'rdr3', or 'common'
+game 'gta5'                    -- FiveM (GTA V)
 
 author 'Your Name'
 description 'What this resource does'
@@ -55,9 +55,6 @@ dependencies {
     'oxmysql',
 }
 
-exports { 'getWidget', 'setWidget' }
-server_export 'getServerData'
-
 data_file 'VEHICLE_METADATA_FILE' 'data/vehicles.meta'
 ```
 
@@ -70,11 +67,9 @@ data_file 'VEHICLE_METADATA_FILE' 'data/vehicles.meta'
 | `client/cl_*.lua` | cl_-prefixed files in client/ |
 | `dir/*.dll` | All .dll in dir/ |
 
-### fx_version Options
+### fx_version
 
-- **cerulean** (2020-05) — Latest. Secure context for NUI (https:// instead of http://)
-- **bodacious** (2020-02) — Older compatibility
-- **adamant** (2019-12) — Minimum for RedM, requires `game` field
+Use `cerulean` (current FXv2 version; NUI runs in a secure `https://cfx-nui-<resource>/` context). Older values (`bodacious`, `adamant`) exist only for legacy resources.
 
 ## Client vs Server Scripts
 
@@ -122,38 +117,32 @@ end)
 
 ### Event Naming Convention
 
-Format: `{resourceName}:{side}:{pastTenseEventName}`
+Format: `{resourceName}:{side}:{action}` — always namespaced with the resource name.
 
-✅ Good: `shop:server:itemPurchased` (describes what happened)
-✅ Good: `inventory:client:itemAdded`
-❌ Bad: `shop:server:checkPurchase` (imperative — describes what should happen)
-❌ Bad: `buyItem` (too generic, no namespace)
+✅ Good: `myshop:server:purchase`, `myshop:client:openMenu`
+❌ Bad: `buyItem` (no namespace — collides with other resources)
 
 ### Event Security
 
 ```lua
-RegisterNetEvent('myresource:client:eventName', function()
-    -- Block if triggered by another resource (nil = legitimate client net event)
-    if GetInvokingResource() then return end
-    
-    -- Block if source isn't valid
-    if not source then return end
-    
-    -- Handle event
+RegisterNetEvent('myresource:server:doThing', function(arg)
+    local src = source                      -- capture before any yield
+    if GetInvokingResource() then return end -- only blocks other resources, NOT malicious clients
+
+    -- Validate everything the client sent
+    if type(arg) ~= 'string' or #arg > 64 then return end
+
+    -- Handle event using src
 end)
 ```
 
 ## Exports
 
-**Defining:**
+**Defining (preferred — runtime `exports()`, no globals, works on client and server):**
 ```lua
--- fxmanifest.lua
-exports { 'getWidget', 'setWidget' }
-
--- client.lua
 local widget = nil
-function getWidget() return widget end
-function setWidget(value) widget = value end
+exports('getWidget', function() return widget end)
+exports('setWidget', function(value) widget = value end)
 ```
 
 **Consuming:**
@@ -162,29 +151,24 @@ local w = exports.myresource:getWidget()
 exports.myresource:setWidget(42)
 ```
 
-**Server exports:**
-```lua
--- fxmanifest.lua
-server_export 'getServerData'
+The legacy manifest form (`exports { ... }` / `server_export '...'` pointing at global functions) still works but is not needed for new resources.
 
--- server.lua
-function getServerData()
-    return { players = GetPlayers() }
-end
-```
+Calling an export of a resource that is not started throws an error. Guard optional dependencies with `GetResourceState('name') == 'started'`.
 
 ## Core Events (Server)
 
 ### playerConnecting — with deferrals
 ```lua
 AddEventHandler('playerConnecting', function(name, setKickReason, deferrals)
+    local src = source  -- MUST be captured before deferrals.defer()/Wait(); `source` changes after a yield
     deferrals.defer()
     Wait(0)
-    
+
     deferrals.update('Checking credentials...')
-    
+
     -- Async check (DB query, HTTP, etc.)
-    local banned = checkBan(source)  -- your function
+    local license = GetPlayerIdentifierByType(src, 'license')
+    local banned = checkBan(license)  -- your function
     Wait(0)
     
     if banned then
@@ -200,12 +184,15 @@ Deferrals object:
 - `deferrals.update(msg)` — Send progress message
 - `deferrals.presentCard(card, cb?)` — Send Adaptive Card
 - `deferrals.done(reason?)` — Finalize (nil = allow, string = kick)
-- `deferrals.handover({endpoints = {...}})` — Dynamic handover
+- `deferrals.handover(data)` — Attach handover data for the connecting client (see the Cfx deferrals docs)
+
+> The server ID during `playerConnecting` is **temporary**. Do not key long-lived player tables by it; use `playerJoining` (source = final ID) or the framework's "player loaded" event.
 
 ### playerDropped
 ```lua
 AddEventHandler('playerDropped', function(reason, resourceName, clientDropReason)
-    print('Player ' .. GetPlayerName(source) .. ' dropped: ' .. reason)
+    local src = source
+    print(('Player %s dropped: %s'):format(GetPlayerName(src), reason))
     -- Cleanup player data, save to DB
 end)
 ```
@@ -230,7 +217,8 @@ end)
 - If no server error → ask for F8 logs
 - `Citizen.Trace('debug message')` — print without newline
 - `print('msg')` — with newline
-- NUI debugging: use F8 → `nui_devTools` from a client in developer mode.
+- NUI debugging: F8 → `nui_devtools` (opens CEF DevTools; use `nui_devtools mpMenu` for the main menu).
+- Per-resource CPU/memory: F8 → `resmon 1`.
 
 ## Key Patterns
 
@@ -238,28 +226,35 @@ end)
 ```lua
 local lastAction = {}
 RegisterNetEvent('myres:server:action', function()
+    local src = source
     if GetInvokingResource() then return end
-    
+
     local now = GetGameTimer()
-    if lastAction[source] and (now - lastAction[source]) < 1000 then
+    if lastAction[src] and (now - lastAction[src]) < 1000 then
         return  -- Rate limit: 1 second
     end
-    lastAction[source] = now
-    
+    lastAction[src] = now
+
     -- Process action
+end)
+
+AddEventHandler('playerDropped', function()
+    lastAction[source] = nil
 end)
 ```
 
 ### Server-side distance validation
 ```lua
 RegisterNetEvent('myres:server:interact', function(entityNetId)
+    local src = source
     if GetInvokingResource() then return end
-    
-    local playerCoords = GetEntityCoords(GetPlayerPed(source))
+    if type(entityNetId) ~= 'number' then return end
+
     local entity = NetworkGetEntityFromNetworkId(entityNetId)
-    local entityCoords = GetEntityCoords(entity)
-    
-    if #(playerCoords - entityCoords) > 5.0 then return end  -- Too far
+    if entity == 0 or not DoesEntityExist(entity) then return end
+
+    local playerCoords = GetEntityCoords(GetPlayerPed(src))
+    if #(playerCoords - GetEntityCoords(entity)) > 5.0 then return end  -- Too far
     
     -- Process interaction
 end)

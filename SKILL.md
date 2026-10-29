@@ -1,45 +1,30 @@
 ---
 name: fivem-script-dev
-description: "FiveM (cfx.re) resource development. ESX, QBCore, QBox, Ox ecosystem, NUI, security, optimization. Method selection guide per framework. Custom integration wrappers for paid/third-party scripts. Load the minimum set of references needed for the task."
-version: 2.6.0
+description: "FiveM (cfx.re, GTA V) resource development in Lua, JS and NUI for ESX, QBCore, QBox and the Ox ecosystem (ox_lib, ox_inventory, ox_target, oxmysql). Use when writing, reviewing or debugging FiveM scripts: fxmanifest.lua, client/server/shared Lua, net events, exports, callbacks, NUI (HTML/JS), xPlayer/QBCore Player/qbx_core APIs, inventory/target/notify integrations, state bags, OneSync, routing buckets, ACE permissions, server.cfg, anti-exploit validation and performance (resmon, Wait loops). Load only the references the task needs."
+version: 2.7.0
 author: ZoniBoy00
 license: MIT
 ---
 
 # FiveM Script Development
 
-> **🤖 AI DIRECTIVE:** You are a FiveM Expert AI. When writing code, ALWAYS reference the rules in `references/<topic>.md` and use the architecture patterns found in `templates/` to ensure modern, secure, and optimized Lua. Never hallucinate natives — use https://docs.fivem.net/natives/ to verify parameter order and return types. Never mix framework conventions (e.g., don't use `QBCore.Functions.GetPlayer` in an ESX resource). Prefer the Ox ecosystem when the server already uses it and the feature is supported, but preserve the framework's native default when no compatible Ox bridge or dependency is present. Always validate client data server-side — the client is never trusted. `GetInvokingResource()` only filters resource-to-resource calls; it is not client authentication.
+> **🤖 AI DIRECTIVE:** You are a FiveM expert. Follow the rules in `references/<topic>.md` and the structure of `templates/`. Never invent natives or exports — verify against https://docs.fivem.net/natives/ and the upstream resource source. Never mix framework conventions (no `QBCore.Functions.GetPlayer` in an ESX resource). Validate every client-supplied value on the server. `GetInvokingResource()` only filters resource-to-resource calls; it is not client authentication.
 
-> **TOKEN EFFICIENCY:** Load the smallest set of `references/<topic>.md` files needed for the task. Combine references when the task crosses boundaries (for example, inventory + security). Templates load only when writing scaffolds.
+> **TOKEN EFFICIENCY:** Load the smallest set of references needed. Templates load only when writing scaffolds.
 
-> **OX FIRST, NOT OX BLIND:** Prefer Ox ecosystem (ox_lib, ox_inventory, oxmysql, ox_target) when it is installed and compatible with the selected framework. No custom DrawText3D when `lib.showTextUI()` is available. No custom callbacks when `lib.callback` works. Do not replace `qb-inventory`, `qb-target`, or framework-native APIs without a documented bridge and an explicit compatibility decision.
+> **COMPATIBILITY FIRST:** Use the stack the server actually runs. Prefer Ox resources when they are installed and compatible; otherwise use the framework's own API (ESX: `esx_notify`/`esx_textui`/`esx_lib`; QBCore: `QBCore.Functions.*`, `qb-inventory`, `qb-target`). Never replace an inventory or target system without an explicit bridge decision.
 
 ---
 
 ## When to Use
 
-- User asks about FiveM resource structure, fxmanifest, or creating a new resource
-- Writing or debugging Lua scripts for FiveM (client/server/shared)
-- Working with ESX (`xPlayer`, `ESX.GetPlayerFromId`), QBCore (`Player`, `QBCore.Functions.GetPlayer`), or QBox
-- Using Ox resources (ox_lib UI/callbacks/zones, oxmysql queries, ox_inventory, ox_target)
-- Building NUI interfaces (HTML/CSS/JS ↔ FiveM messaging)
-- Security review or optimization of FiveM resources
-- Questions about event handling, exports, callbacks, or state bags
-- Debugging server-side (server console) or client-side (F8 console) errors
-- Setting up database queries (MySQL/MariaDB with oxmysql)
-
----
-
-## Documentation and Version Verification
-
-Use `references/documentation-and-versioning.md` when a task depends on current framework, resource, native, or game-build behavior. Before citing or implementing a version-sensitive API:
-
-1. Check the official documentation for the relevant framework or resource.
-2. Check the upstream repository's current branch, latest commit date, release/tag, and archive status.
-3. Confirm the resource exists and the referenced path or export is not a 404.
-4. Record the assumption when the server's exact version is unknown; do not present an unverified API as current fact.
-
-This applies to ESX, QBCore, QBox, ox_lib, ox_inventory, ox_target, oxmysql, OneSync, and FiveM natives — not only QBox resources. Update the relevant reference when a breaking upstream change is confirmed.
+- Creating a resource, fxmanifest, or project structure
+- Writing or debugging client/server/shared Lua (or JS) for FiveM
+- ESX (`xPlayer`), QBCore (`Player`), or QBox (`exports.qbx_core`) work
+- ox_lib UI/callbacks/zones, oxmysql, ox_inventory, ox_target
+- NUI interfaces (HTML/CSS/JS ↔ Lua)
+- Security review, exploit hardening, or optimization
+- Server console or F8 client console errors
 
 ---
 
@@ -47,273 +32,163 @@ This applies to ESX, QBCore, QBox, ox_lib, ox_inventory, ox_target, oxmysql, One
 
 ### Framework Comparison
 
-| Feature | ESX | QBCore | QBox |
+| Feature | ESX Legacy | QBCore | QBox |
 |---------|-----|--------|------|
 | Core resource | `es_extended` | `qb-core` | `qbx_core` |
-| Get player | `ESX.GetPlayerFromId(source)` | `QBCore.Functions.GetPlayer(source)` | `exports.qbx_core:GetPlayer(source)` |
-| Add money | `xPlayer.addMoney(amount)` | `Player.Functions.AddMoney('cash', amount)` | `exports.qbx_core:AddMoney(...)` or documented player API |
-| Callback C→S | `ESX.TriggerServerCallback` | `QBCore.Functions.TriggerCallback` | `lib.callback` |
-| **Notify** | **ox_lib** (default) | **QBCore.Functions.Notify** (default) | **ox_lib** |
-| **TextUI** | **ox_lib** | **QBCore.Functions.DrawText3D** (default) / ox_lib optional | **ox_lib** |
-| Inventory | ESX built-in / ox_inventory | **qb-inventory** (default) / ⚠️ ox_inventory needs bridge | ox_inventory |
-| Targeting | Third-party / ox_target | **qb-target** (default) / ox_target optional | ox_target |
-| Status | Maintained (10k+ servers) | Maintained | Active development |
+| Core object | `@es_extended/imports.lua` (global `ESX`) | `exports['qb-core']:GetCoreObject()` | none — use `exports.qbx_core` |
+| Get player (server) | `ESX.GetPlayerFromId(src)` | `QBCore.Functions.GetPlayer(src)` | `exports.qbx_core:GetPlayer(src)` |
+| Add money | `xPlayer.addMoney(amount, reason)` | `Player.Functions.AddMoney('cash', amount, reason)` | `exports.qbx_core:AddMoney(src, 'cash', amount, reason)` |
+| Callback C→S | `ESX.TriggerServerCallback` (or `lib.callback`) | `QBCore.Functions.TriggerCallback` (or `lib.callback`) | `lib.callback` |
+| Notify (default) | `esx_notify` → `ESX.ShowNotification` / `xPlayer.showNotification` | `QBCore.Functions.Notify` | ox_lib (`exports.qbx_core:Notify`) |
+| TextUI (default) | `esx_textui` → `ESX.TextUI` / `ESX.HideUI` | `exports['qb-core']:DrawText` | `lib.showTextUI` |
+| Inventory (default) | es_extended items (UI: `esx_inventory`); ox_inventory via `Config.CustomInventory = 'ox'` | `qb-inventory` exports | ox_inventory |
+| Targeting | ox_target or third-party | `qb-target` (ox_target optional) | ox_target |
+| Shared lib | `esx_lib` (global `xLib`), ox_lib optional | ox_lib optional | ox_lib (required) |
 
-> **💡 QBCore note:** ox_lib notifications (`lib.notify`) and TextUI (`lib.showTextUI`) work fine with QBCore. But `ox_inventory` does NOT replace `qb-inventory` without a bridge resource. QBCore defaults to its own notify/DrawText3D unless you explicitly add ox_lib.
+> ox_lib UI (`lib.notify`, `lib.showTextUI`, `lib.callback`) works on every framework **when ox_lib is installed**. It does not replace the framework's inventory.
 
 ### Client vs Server
 
-| Side | Runs on | Game Natives | Use for |
+| Side | Runs on | Game natives | Use for |
 |------|---------|-------------|---------|
-| **Client** | Each player's game | ✅ Yes | UI, gameplay, rendering, locals |
-| **Server** | Once on server | ❌ No (server natives only) | Data, auth, validation, economy, DB |
-| **Shared** | Both sides | ⚠️ Guard by env | Config, constants, helpers |
+| **Client** | Each player's game | ✅ Yes | UI, rendering, input, local entities |
+| **Server** | Once on server | ❌ Server natives only | Data, auth, validation, economy, DB, networked entity creation |
+| **Shared** | Both sides | ⚠️ Guard with `IsDuplicityVersion()` | Config, constants, pure helpers |
 
-### Key Client Functions
+### Key Functions
 
-| Function | Purpose |
-|----------|---------|
-| `PlayerPedId()` | Get local player ped (faster than `GetPlayerPed(-1)`) |
-| `GetEntityCoords(ped)` | Get position as vector3 |
-| `#(coords1 - coords2)` | Vector distance (faster than `GetDistanceBetweenCoords`) |
-| `SendNUIMessage({})` | Send data to NUI HTML |
-| `RegisterNUICallback(name, fn)` | Receive data from NUI |
-| `Citizen.CreateThread(fn)` | Spawn a new thread |
-| `Citizen.Wait(ms)` | Yield thread for ms |
-| `RegisterCommand(name, fn, restricted)` | Register a chat command |
+| Function | Side | Purpose |
+|----------|------|---------|
+| `PlayerPedId()` / `cache.ped` (ox_lib) | Client | Local player ped |
+| `#(a - b)` | Both | Vector distance |
+| `SendNUIMessage` / `RegisterNUICallback` | Client | NUI messaging |
+| `CreateThread(fn)` / `Wait(ms)` | Both | Threads (aliases of `Citizen.*`) |
+| `RegisterCommand(name, fn, restricted)` | Both | Commands (`restricted = true` → ACE `command.<name>`) |
+| `GetPlayers()` / `GetPlayerName(src)` | Server | Player list / name |
+| `GetPlayerIdentifierByType(src, 'license')` | Server | Single identifier |
+| `TriggerClientEvent(event, target, ...)` | Server | Server → client (`-1` = everyone) |
+| `CreateVehicleServerSetter(model, type, x, y, z, h)` | Server | Server-owned networked vehicle (OneSync) |
+| `PerformHttpRequest(url, cb, method, data, headers)` | Server | HTTP |
 
-### Key Server Functions
-
-| Function | Purpose |
-|----------|---------|
-| `GetPlayerName(source)` | Get player's name |
-| `GetPlayers()` | Get all connected player IDs |
-| `GetPlayerIdentifiers(source)` | Get player identifiers (steam, license, etc.) |
-| `TriggerClientEvent(event, source, ...)` | Trigger event on client(s) |
-| `DropPlayer(source, reason)` | Kick player |
-| `PerformHttpRequest(url, cb, method, data, headers)` | HTTP requests |
-| `PerformHttpRequestAwait(url, options)` | Awaitable HTTP |
-
-### Key Native Calls (client)
+### Model Loading and Entity Creation
 
 ```lua
--- Vehicle creation
-RequestModel(vehicleHash)
-while not HasModelLoaded(vehicleHash) do Wait(100) end
-local veh = CreateVehicle(vehicleHash, x, y, z, heading, true, false)
-SetPedIntoVehicle(ped, veh, -1)    -- -1 = driver
-SetEntityAsNoLongerNeeded(veh)
-SetModelAsNoLongerNeeded(vehicleHash)
+-- CLIENT: local/visual entities. Always time out model requests.
+local model = joaat('adder')
+if not IsModelInCdimage(model) then return end
+RequestModel(model)
+local timeout = GetGameTimer() + 5000
+while not HasModelLoaded(model) and GetGameTimer() < timeout do Wait(0) end
+if not HasModelLoaded(model) then return end
+-- ox_lib alternative: lib.requestModel(model, 5000)
 
--- Ped creation
-RequestModel(pedHash)
-while not HasModelLoaded(pedHash) do Wait(100) end
-local ped = CreatePed(0, pedHash, x, y, z, heading, true, false)
-SetEntityAsNoLongerNeeded(ped)
-SetModelAsNoLongerNeeded(pedHash)
-
--- Entity checks
-IsPedDeadOrDying(ped)
-DoesEntityExist(entity)
-IsEntityDead(entity)
-SetEntityCoords(entity, x, y, z)
-GetEntityHeading(entity)
+-- SERVER (OneSync): networked vehicles that matter to gameplay
+local veh = CreateVehicleServerSetter(model, 'automobile', coords.x, coords.y, coords.z, heading)
+local timeoutAt = GetGameTimer() + 5000
+while not DoesEntityExist(veh) and GetGameTimer() < timeoutAt do Wait(0) end
+if not DoesEntityExist(veh) then return end
+SetPedIntoVehicle(GetPlayerPed(src), veh, -1)
 ```
 
 ---
 
 ## Method Selection Guide
 
-**Quick decision tree for which API to use per framework:**
-
 ```
-QBCore resource?
-├── YES → QBCore.Functions.Notify (notify)
-│         QBCore.Functions.DrawText3D (text UI)
-│         qb-inventory exports (inventory)
-│         qb-target exports (targeting)
-│         ox_lib CAN be used for notify/textUI if server has it
-│         ⚠️ ox_inventory needs a bridge — NOT default
-│
-└── NO → ESX or QBox?
-    ├── ESX → ox_lib notify + showTextUI
-    │         ox_inventory or ESX built-in
-    │         ox_target or third-party
-    │
-    └── QBox → ox_lib notify + showTextUI
-               ox_inventory (default!)
-               ox_target (default!)
+QBCore?
+├── Notify: QBCore.Functions.Notify (ox_lib only if installed)
+├── Inventory: exports['qb-inventory']:AddItem/RemoveItem/HasItem
+├── Target: qb-target (ox_target only if installed)
+└── Callbacks: QBCore.Functions.CreateCallback / TriggerCallback
 
-Standalone (no framework)?
-    → ox_lib + ox_inventory + oxmysql only
-    → load references/standalone-and-bridge.md
-    → ox_lib for all UI, ox_inventory for items/money
+ESX?
+├── Notify/TextUI/Progress: ESX.ShowNotification / ESX.TextUI / ESX.Progressbar
+├── Inventory: xPlayer item methods (works with ox_inventory via Config.CustomInventory = 'ox')
+├── Utilities: esx_lib (xLib) or ox_lib when installed
+└── Callbacks: ESX.RegisterServerCallback / ESX.TriggerServerCallback, or lib.callback
 
-Unknown / custom systems?
-    → load references/custom-integrations.md
-    → Use the NotifyPlayer()/AddItem() wrapper functions
-    → Config.Integrations lets server owner pick
-```
+QBox?
+└── ox_lib + ox_inventory + ox_target + exports.qbx_core (defaults)
 
-**TL;DR:** Ox first for ESX/QBox. QBCore's own tools for QBCore. Custom wrappers for unknown systems.
-
----
-
-## Skill Structure — Load only the necessary references
-
-```
-gaming/fivem-script-dev/
-├── SKILL.md                            ← This file (quick reference + directory)
-├── references/                         ← Load only what the task requires
-│   ├── fivem-basics.md                 → Resource structure, events, exports
-│   ├── lua-for-fivem.md                → Lua best practices
-│   ├── scripting-languages.md          → Lua/JS/C# comparison
-│   ├── esx-framework.md                → ESX (xPlayer, jobs, inventory)
-│   ├── qbcore-framework.md             → QBCore (Player, jobs, gangs)
-│   ├── qbox-framework.md               → QBox (bridge, FAQ, conversion)
-│   ├── ox-lib.md                       → UI, callbacks, zones, commands
-│   ├── oxmysql.md                      → Queries, transactions, placeholders
-│   ├── ox-inventory-target.md          → Inventory & target exports
-│   ├── ace-permissions.md              → ACE groups, identifiers, allow/deny
-│   ├── common-patterns.md              → Shop, doors, vehicles, whitelist
-│   ├── standalone-and-bridge.md        → Multi-framework bridge helper
-│   ├── custom-integrations.md          → Quasar, paid scripts, custom inventory/notify/target
-│   ├── fivem-nui.md                    → NUI HTML/JS ↔ FiveM
-│   ├── fivem-security.md               → Anti-exploit, server authority
-│   ├── onesync.md                      → Routing buckets, entity migration
-│   ├── server-cfg.md                   → Convars, game builds, commands
-│   ├── error-handling.md               → pcall, debugging, defensive code
-│   ├── other-resources.md              → Fivemanage, state bags
-│   ├── documentation-and-versioning.md → Official-source and freshness checks
-│   └── optimization.md                 → Variable wait, caching, events
-└── templates/                          ← Load ONLY when writing scaffold
-    ├── fxmanifest.lua                  → Manifest template
-    ├── nui/                            → NUI (html/css/js separate)
-    ├── esx-resource.lua                → ESX scaffold
-    ├── qbcore-resource.lua             → QBCore scaffold
-    ├── qbox-resource.lua               → QBox scaffold
-    ├── oxmysql-queries.lua             → DB query patterns
-    ├── admin-command.lua               → ACE + rate limits
-    ├── discord-webhook.lua             → Logging with embeds
-    └── inventory-hooks.lua             → ox_inventory registration
+Standalone? → ox_lib + oxmysql (+ ox_inventory) → references/standalone-and-bridge.md
+Unknown / paid scripts? → references/custom-integrations.md (Config-selected adapters)
 ```
 
 ---
 
-## Ox First — Golden Rule
+## Task → Reference Map
 
-| Instead of this | Use this | Reason |
-|----------------|----------|--------|
-| Custom `DrawText3D()` | `lib.showTextUI()` | Lighter, built-in positioning |
-| Custom notification | `lib.notify()` | Consistent UX, 6 types |
-| `ESX.TriggerServerCallback` | `lib.callback` | Framework-agnostic |
-| `QBCore.Functions.TriggerCallback` | `lib.callback` | Works on all frameworks |
-| Custom inventory | `exports.ox_inventory` | Secure, performant, standard |
-| Manual distance loops | `lib.zones.box/poly/sphere` | Event-driven, no polling |
-| Custom keybinds | `lib.addKeybind()` | Built-in settings UI |
-
-**Rule:** If the server has a compatible Ox installation and Ox covers the use case, use Ox. Otherwise use the selected framework's native API or a documented bridge. Compatibility beats ideology.
-
----
-
-## How to Use — Load the minimum necessary references
-
-1. **General FiveM** → `references/fivem-basics.md`
-2. **Lua patterns** → `references/lua-for-fivem.md`
-3. **Languages** → `references/scripting-languages.md`
-4. **ESX** → `references/esx-framework.md`
-5. **QBCore** → `references/qbcore-framework.md`
-6. **QBox** → `references/qbox-framework.md`
-7. **Ox Lib** → `references/ox-lib.md`
-8. **Database** → `references/oxmysql.md`
-9. **Inventory/Target** → `references/ox-inventory-target.md`
-10. **ACE permissions** → `references/ace-permissions.md`
-11. **Common patterns** → `references/common-patterns.md`
-12. **Standalone/Bridge** → `references/standalone-and-bridge.md`
-13. **NUI** → `references/fivem-nui.md`
-14. **Security** → `references/fivem-security.md`
-15. **OneSync** → `references/onesync.md`
-16. **Server.cfg** → `references/server-cfg.md`
-17. **Error handling** → `references/error-handling.md`
-18. **Optimization** → `references/optimization.md`
-19. **Documentation/version check** → `references/documentation-and-versioning.md`
-20. **Template needed** → load from `templates/`
-
-**🔑 Context tip:** Keep context focused. Load the smallest set of references needed and retain multiple references only when the task genuinely crosses their topics.
-
-Also: **FiveM Natives:** https://docs.fivem.net/natives/ — always check here for exact native parameters.
+| Task | Load |
+|------|------|
+| New resource, manifest, events, exports | `references/fivem-basics.md` + `templates/fxmanifest.lua` |
+| Lua idioms (5.4) | `references/lua-for-fivem.md` |
+| JS / C# runtimes | `references/scripting-languages.md` |
+| ESX | `references/esx-framework.md` (+ `templates/esx-resource.lua`) |
+| QBCore | `references/qbcore-framework.md` (+ `templates/qbcore-resource.lua`) |
+| QBox | `references/qbox-framework.md` (+ `templates/qbox-resource.lua`) |
+| ox_lib UI / callback / zone / command | `references/ox-lib.md` |
+| SQL | `references/oxmysql.md` (+ `templates/oxmysql-queries.lua`) |
+| ox_inventory / ox_target | `references/ox-inventory-target.md` (+ `templates/inventory-hooks.lua`) |
+| Shops, doors, vehicles, whitelist | `references/common-patterns.md` |
+| Multi-framework / standalone | `references/standalone-and-bridge.md` |
+| Paid / custom integrations | `references/custom-integrations.md` |
+| NUI | `references/fivem-nui.md` (+ `templates/nui/`) |
+| Exploit protection | `references/fivem-security.md` |
+| Admin command / ACE | `references/ace-permissions.md` (+ `templates/admin-command.lua`) |
+| OneSync, entities, routing buckets, state bags | `references/onesync.md` |
+| server.cfg | `references/server-cfg.md` |
+| Debugging, pcall | `references/error-handling.md` |
+| Performance | `references/optimization.md` |
+| Fivemanage, spawnmanager, chat | `references/other-resources.md` |
+| Discord logging | `templates/discord-webhook.lua` |
+| Version-sensitive API | `references/documentation-and-versioning.md` |
 
 ---
 
 ## Common Pitfalls
 
-1. **Not validating client data server-side** — Most common exploit vector. Always validate amounts, distances, ownership on server.
-2. **Overusing `Wait(0)`** — Causes unnecessary CPU. Use appropriate intervals for each check.
-3. **Game natives in server scripts** — Will error. Use `shared_scripts` only for pure Lua/config.
-4. **NUI callback never called back** — `cb()` must always execute (even empty `{}`) or request times out.
-5. **Hardcoded values** — Coordinates, item names, prices → externalize to `config.lua`. For sensitive locations, store coordinates **server-side** and send to client only when needed.
-6. **Not handling nil player object** — Always check after `GetPlayerFromId()` / `GetPlayer()`.
-7. **SQL injection** — Always use `?` placeholders, never concatenate.
-8. **Event spam instead of state bags** — For frequent sync, use `Entity(entity).state:set()` instead.
-9. **Modifying core framework files** — Breaks on updates. Create separate resources using exports/events.
-10. **Accessing core DB tables directly** — Use framework exports/API instead.
-11. **Using deprecated functions/events** — They'll be removed. Check current framework docs.
-12. **Oversized network payloads** — Send only what's needed.
-13. **Wrong manifest language** — `fxmanifest.lua` is ALWAYS Lua; scripts can be `.lua`, `.js`, or `.net.dll`.
-14. **Trusting stale resource lists** — Online framework tables (QBox resources, ESX status, etc.) are often wrong. ALWAYS verify from GitHub: check pinned repos, last commit date, and whether the repo actually exists (404 check). Many QBox resources have been archived/removed. Verify at https://github.com/Qbox-project before citing any list.
-15. **Calling exports without pcall** — If the target resource isn't started, an unguarded `exports.ox_inventory:AddItem()` will crash the entire resource. Wrap export calls in `pcall()` or check `GetResourceState('ox_inventory') == 'started'` first.
-16. **Spamming RegisterNetEvent in loops** — Registering events inside a loop or CreateThread creates duplicate listeners. Register events at the top level, once, outside any loop.
-17. **`lua54 'yes'` is now redundant** — As of June 2025, Lua 5.4 is the only runtime. Remove `lua54 'yes'` from new manifests to avoid confusion (it no longer does anything).
-18. **NUI blackscreen** — UI loads but screen is black: CEF draws an opaque fallback layer. Fix: explicit `background: transparent` on `html, body`, remove `backdrop-filter` (use RGBA card colors instead), reduce heavy `box-shadow`/large `border-radius`. Full guide in `references/fivem-nui.md` → "Blackscreen Fix".
-19. **Assuming an API is current** — Framework and resource APIs change. Check `references/documentation-and-versioning.md` before relying on an export, native signature, resource list, or game-build behavior.
+1. **Trusting client data** — validate amounts, item names, distances, ownership and permissions on the server.
+2. **Reading `source` after a yield** — `source` is a global that changes when the handler yields (`Wait`, `.await`, `lib.callback.await`, deferrals). Always start server handlers with `local src = source` and use `src`.
+3. **Taking money before the action can succeed** — check capacity first, then remove money, then add the item; refund if the add fails.
+4. **Accepting prices or totals from the client** — look them up server-side; never compare against a client-supplied price.
+5. **Client-created networked entities** — spawn gameplay-relevant vehicles/peds server-side (`CreateVehicleServerSetter`) and set `sv_entityLockdown` (see `onesync.md`).
+6. **`Wait(0)` everywhere** — use zones/points or variable sleep.
+7. **Game natives in server scripts** — they error; keep them client-side.
+8. **NUI callback never answered** — always call `cb(...)`.
+9. **Nil player objects** — players disconnect mid-handler; check after every lookup.
+10. **SQL concatenation** — always `?` placeholders.
+11. **Event spam for continuous data** — use state bags for low-frequency shared state; never stream positions every frame.
+12. **Editing framework core files** — use exports/events from your own resource.
+13. **Unguarded optional dependencies** — check `GetResourceState(res) == 'started'` before calling optional exports.
+14. **`RegisterNetEvent` inside loops/threads** — register once at file scope.
+15. **`lua54 'yes'`** — no-op since June 2025 (Lua 5.4 is the only runtime); harmless in old manifests, omit in new ones.
+16. **Model requests without timeout** — `while not HasModelLoaded()` without a deadline hangs on invalid models.
+17. **Stale API knowledge** — framework APIs move (e.g. QBCore item functions moved to `qb-inventory` exports). Check `references/documentation-and-versioning.md`.
+18. **NUI blackscreen** — see `references/fivem-nui.md` → "Blackscreen Fix".
 
 ---
 
 ## Required Generation Workflow
 
-1. Identify the framework, inventory, target, database, and OneSync assumptions.
-2. Load only the references required for the task.
-3. Verify natives and current third-party APIs against their official documentation.
-4. Keep all economy, permission, distance, inventory, and state validation on the server.
-5. Treat every client event, NUI callback, and client-supplied entity ID as untrusted.
-6. Run syntax/lint checks and provide a focused test plan with the generated code.
-7. State assumptions, version-sensitive APIs, and any unverified integration points.
+1. Identify framework, inventory, target, database, and OneSync assumptions.
+2. Load only the required references.
+3. Verify natives and third-party exports against official docs/source.
+4. Keep economy, permission, distance, inventory, and state validation on the server.
+5. Treat every net event, NUI callback, and client-supplied entity/net ID as untrusted.
+6. Run syntax checks (`luac -p`) and give a focused test plan.
+7. State assumptions and any unverified integration points.
 
 ### Security Boundary
 
-`GetInvokingResource()` is not authentication for client network events. A malicious client can still trigger server events. Use it only to restrict calls originating from other resources; validate the player, request, permissions, location, state, inventory, cooldown, and result on the server.
-
-## Task → Reference Quick Map
-
-| Task | Load |
-|------|------|
-| New resource from scratch | `fivem-basics.md` + `templates/fxmanifest.lua` |
-| ESX player money/items | `esx-framework.md` |
-| QBCore player money/items | `qbcore-framework.md` |
-| QBox / qbx_core | `qbox-framework.md` |
-| ox_lib UI / callback / zone | `ox-lib.md` |
-| SQL query / database | `oxmysql.md` |
-| Inventory / stash / shop | `ox-inventory-target.md` |
-| NUI button → server | `fivem-nui.md` |
-| Exploit protection / cheat prevention | `fivem-security.md` |
-| Admin command / ACE | `ace-permissions.md` |
-| Multi-framework support | `standalone-and-bridge.md` |
-| Quasar / paid-script integration | `custom-integrations.md` |
-| Optimisation / Wait(0) | `optimization.md` |
-| Debugging / pcall | `error-handling.md` |
-| server.cfg / game build | `server-cfg.md` |
-| OneSync / routing buckets | `onesync.md` |
-| Current API, resource, or game-build behavior | `documentation-and-versioning.md` |
+`GetInvokingResource()` returns `nil` for net events from clients, so it cannot authenticate a client. Use it only to restrict calls from other resources; validate player, permissions, location, state, inventory, cooldown, and result on the server.
 
 ---
 
-## Links Reference
+## Links
 
 - FiveM docs: https://docs.fivem.net/docs/
-- Natives search: https://docs.fivem.net/natives/
+- Natives: https://docs.fivem.net/natives/
 - ESX: https://docs.esx-framework.org/
 - QBCore: https://docs.qbcore.org/qbcore-documentation
 - QBox: https://docs.qbox.re/
-- Ox Lib: https://overextended.dev/ox_lib
-- Overextended: https://overextended.dev/
-- Performance guide: https://forum.cfx.re/t/best-practice-improve-your-resource-performance/105509
+- Overextended (ox_lib, ox_inventory, ox_target, oxmysql): https://overextended.dev/

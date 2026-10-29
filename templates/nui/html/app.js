@@ -35,7 +35,7 @@ function openPanel(data) {
             div.className = 'item';
             div.innerHTML = `
                 <span class="item-name">${escapeHtml(item.name)}</span>
-                <span class="item-price">$${item.price ?? 0}</span>
+                <span class="item-price">$${Number(item.price) || 0}</span>
                 <button class="item-btn">Buy</button>
             `;
             div.querySelector('.item-btn').addEventListener('click', () => {

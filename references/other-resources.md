@@ -82,8 +82,8 @@ Entity(vehicle).state:set('internal_data', data, false)
 -- Client: set local state (not sent to server)
 Entity(vehicle).state:set('local_flag', true, false)
 
--- Global state (not entity-specific)
-GlobalState:set('server_restarting', true)
+-- Global state (server-only writes; replicated to all clients)
+GlobalState.server_restarting = true
 ```
 
 ### Get State
@@ -178,7 +178,7 @@ RegisterCommand('hello', function(source, args, rawCommand)
         print('Hello from console!')
         return
     end
-    
+
     TriggerClientEvent('chat:addMessage', -1, {
         color = { 255, 255, 255 },
         multiline = true,
@@ -187,15 +187,15 @@ RegisterCommand('hello', function(source, args, rawCommand)
 end, false)  -- false = not restricted
 ```
 
-## Baseevents (Stock Resource)
+## Game Events (client)
 
 ```lua
--- Listen for game events (client)
+-- `gameEventTriggered` is a CLIENT event. Server-side equivalents: weaponDamageEvent, explosionEvent, entityCreating, etc.
 AddEventHandler('gameEventTriggered', function(name, args)
     if name == 'CEventNetworkEntityDamage' then
         local victim, attacker = args[1], args[2]
         local victimDied = args[4]
-        
+
         if attacker == PlayerPedId() and victimDied then
             print('You killed someone!')
         end
@@ -208,4 +208,4 @@ end)
 - Fivemanage: https://docs.fivemanage.com/fivem-sdk/installation
 - Stock resources: https://docs.fivem.net/docs/resources/
 - State bags: https://docs.fivem.net/docs/scripting-manual/networking/state-bags/
-- Baseevents (list of all core events): https://docs.fivem.net/docs/scripting-reference/events/list/
+- Event reference (client + server): https://docs.fivem.net/docs/scripting-reference/events/list/

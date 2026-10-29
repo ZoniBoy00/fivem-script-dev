@@ -11,8 +11,8 @@ shared_scripts {
     '@ox_lib/init.lua',
 }
 
--- Optionally preload modules
-ox_libs { 'locale', 'callback' }
+-- Optionally preload modules (others lazy-load on first use)
+ox_libs { 'locale', 'math', 'table' }
 ```
 
 > Docs: https://overextended.dev/ox_lib
@@ -25,9 +25,9 @@ ox_libs { 'locale', 'callback' }
 lib.notify({
     title = 'Shop',
     description = 'Item purchased!',
-    type = 'success',           -- 'success', 'error', 'info', 'warning'
-    duration = 5000,            -- ms (default varies)
-    position = 'top-right',     -- 'top-right', 'top-left', 'bottom-right', 'bottom-left', 'center-right', 'center-left'
+    type = 'success',           -- 'inform' (default; 'info' is accepted as alias), 'success', 'error', 'warning'
+    duration = 5000,            -- ms
+    position = 'top-right',     -- 'top', 'top-right', 'top-left', 'bottom', 'bottom-right', 'bottom-left', 'center-right', 'center-left'
     icon = 'fa-solid fa-check', -- optional Font Awesome 6 icon
 })
 ```
@@ -123,7 +123,7 @@ local completed = lib.progressBar({
 -- Show floating text on screen
 lib.showTextUI('[E] - Interact', {
     icon = 'fa-solid fa-hand',
-    position = 'left-center',       -- 'left-center', 'right-center'
+    position = 'left-center',       -- 'right-center' (default), 'left-center', 'top-center', 'bottom-center'
 })
 
 -- Hide
@@ -147,7 +147,7 @@ lib.callback('myres:server:getData', false, function(data)
 end, arg1, arg2)
 -- The second argument is a re-trigger cooldown in milliseconds (false = no cooldown)
 
--- Client → Server (await style — must be in async context)
+-- Client → Server (await style — must run inside a thread/handler)
 local data = lib.callback.await('myres:server:getData', false, arg1, arg2)
 
 -- Server registration (returns data back to client)
@@ -169,14 +169,16 @@ end)
 ## Commands
 
 ```lua
-lib.addCommand('car', {
-    help = 'Spawn a vehicle',
+lib.addCommand('givecash', {
+    help = 'Give cash to a player',
     params = {
-        { name = 'model', type = 'string', help = 'Vehicle model name' },
+        { name = 'target', type = 'playerId', help = 'Target server ID' },
+        { name = 'amount', type = 'number', help = 'Amount' },
+        { name = 'note', type = 'longString', help = 'Reason', optional = true },
     },
-    restricted = 'group.admin',   -- or false for everyone
+    restricted = 'group.admin',   -- ACE principal(s); false/nil = everyone
 }, function(source, args, raw)
-    TriggerClientEvent('myres:spawnVehicle', source, args.model)
+    -- args.target is a validated, online player ID; args.amount is a number
 end)
 ```
 
@@ -184,10 +186,12 @@ end)
 
 | Type | Description |
 |------|-------------|
-| `string` | Text input |
+| `string` | Single word |
+| `longString` | Rest of the input (must be the last param) |
 | `number` | Numeric value |
-| `player` | Player ID or name (autocomplete) |
-| `vehicle` | Vehicle model |
+| `playerId` | Server ID of an online player (`me` = caller) |
+
+Parameters without `optional = true` are required; ox_lib rejects the command with a usage message when they are missing or invalid.
 
 ## Zones
 
@@ -275,44 +279,41 @@ lib.addKeybind({
 ## Shared Utilities
 
 ```lua
--- Table
-local merged = lib.table.merge(t1, t2)            -- Deep merge
-local contains = lib.table.contains(t, value)     -- Check value in table
-local keys = lib.table.keys(t)                    -- Get keys array
+-- Table (lib.table extends Lua's table library)
+local merged = lib.table.merge(t1, t2)            -- merge t2 into t1
+local contains = lib.table.contains(t, value)     -- value (or table of values) present?
+local same = lib.table.matches(t1, t2)            -- deep equality
+local copy = lib.table.deepclone(t)
+local doubled = lib.table.map(t, function(v) return v * 2 end)
+lib.table.freeze(t)                               -- read-only
 
 -- String
-local upper = lib.string.upper(s)
-local lower = lib.string.lower(s)
+local plate = lib.string.random('AA111AAA')       -- pattern-based random string
 
 -- Math
 local clamped = lib.math.clamp(value, min, max)
 local rounded = lib.math.round(1.234, 2)          -- 1.23
-local between = lib.math.between(value, min, max) -- inclusive check
-
--- Type checks
-local isArray = lib.table.is_array(t)
+local pretty = lib.math.groupdigits(1234567)      -- '1,234,567'
+local inRange = value >= min and value <= max     -- no lib helper; use a plain comparison
 ```
 
 ## Locales
 
+Locales are JSON files in `locales/` of your resource. The language comes from the `ox:locale` convar (`setr ox:locale fi`); missing keys fall back to `en`.
+
+`locales/en.json`:
+
+```json
+{ "item_bought": "Bought %s", "not_enough_money": "Not enough money!" }
+```
+
 ```lua
--- shared/locales/en.lua
-local locales = {
-    item_bought = 'Item purchased!',
-    not_enough_money = 'Not enough money!',
-    shop_title = 'Shop',
-}
+-- fxmanifest.lua
+ox_libs { 'locale' }
+files { 'locales/*.json' }
 
--- shared/locales/custom.lua (example of adding another locale)
-local locales = {
-    item_bought = 'Item purchased!',
-    not_enough_money = 'Not enough money!',
-    shop_title = 'Shop',
-}
-
--- In code
-lib.locale('item_bought')  -- returns localized string
-lib.locale('not_enough_money')
+-- any script
+lib.notify({ description = locale('item_bought', 'Water') })   -- global locale(key, ...)
 ```
 
 ## Links

@@ -40,11 +40,13 @@ add_ace group.superadmin command.restart allow
 
 | Type | Format | Reliability |
 |------|--------|------------|
-| Steam ID | `identifier.steam:110000XXXXXX` | ⭐ Most stable |
-| License | `identifier.license:XXXXXXXXXX` | ⭐ Stable |
-| Discord | `identifier.discord:123456789` | ⭐ Stable |
-| FiveM ID | `identifier.fivem:XXXXXXXXXX` | 🟡 Medium |
+| License | `identifier.license:XXXXXXXXXX` | ⭐ Recommended — always present (Rockstar license) |
+| FiveM (Cfx.re) | `identifier.fivem:XXXXXXX` | ⭐ Stable when the player is linked |
+| Discord | `identifier.discord:123456789` | 🟡 Only if Discord is running/linked |
+| Steam | `identifier.steam:110000XXXXXX` | 🟡 Only if Steam is running |
 | IP | `identifier.ip:1.2.3.4` | ❌ Avoid |
+
+In Lua, read one identifier with `GetPlayerIdentifierByType(src, 'license')`.
 
 ## Complete Role Hierarchy
 
@@ -56,7 +58,7 @@ add_ace group.superadmin command.restart allow
 # Superadmin
 add_ace group.superadmin command allow
 add_ace group.superadmin txadmin allow
-add_principal identifier.steam:110000XXXXXX group.superadmin
+add_principal identifier.license:XXXXXXXXXX group.superadmin
 
 # Admin
 add_ace group.admin command.kick allow
@@ -96,10 +98,14 @@ add_ace group.mechanic mechanic.repair allow
 -- Server
 if IsPlayerAceAllowed(source, 'police.armory') then end
 
--- Client (via server round-trip)
-TriggerServerEvent('myres:checkPerm')
-RegisterNetEvent('myres:permResult')
-AddEventHandler('myres:permResult', function(allowed) end)
+-- Client: ask the server (ox_lib callback); use the answer only for UI.
+-- The server must re-check the ACE when the action is actually performed.
+local allowed = lib.callback.await('myres:canUseArmory', false)
+
+-- Server
+lib.callback.register('myres:canUseArmory', function(source)
+    return IsPlayerAceAllowed(source, 'police.armory')
+end)
 ```
 
 ## Restricting an Entire Resource
@@ -123,7 +129,7 @@ list_principals
 
 ## Common Pitfalls
 
-1. **Order matters** — Create group + ACE before adding principals
+1. **Restricted commands** — `RegisterCommand(name, fn, true)` checks the ACE `command.<name>` automatically
 2. **Case-sensitive** — `Command.kick` ≠ `command.kick`
 3. **Live versus config changes** — `add_ace`/`remove_ace` apply when entered in the server console; changes in `server.cfg` require a server restart or configuration re-read. `refresh` only reloads resources.
 4. **Permissions only work server-side** — Can't check directly on client

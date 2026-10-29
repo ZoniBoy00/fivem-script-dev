@@ -1,7 +1,7 @@
 --[[
     QBox resource scaffold
     Replace 'myres' with your actual resource name
-    
+
     QBox uses qbx_core with ox_lib, ox_inventory, and ox_target by default.
     This template follows QBox conventions — no QB bridge unless needed.
 ]]
@@ -98,11 +98,11 @@ lib.addKeybind({
 CreateThread(function()
     while true do
         local sleep = 1000
-        
+
         if isLoggedIn then
             -- Player logic here
         end
-        
+
         Wait(sleep)
     end
 end)
@@ -116,7 +116,7 @@ end)
 lib.callback.register('myres:server:getData', function(source)
     local player = exports.qbx_core:GetPlayer(source)
     if not player then return false end
-    
+
     return {
         job = player.PlayerData.job.name,
         money = player.PlayerData.money,
@@ -126,10 +126,10 @@ end)
 -- Example event handler:
 RegisterNetEvent('myres:server:openShop', function()
     if GetInvokingResource() then return end
-    
+
     local player = exports.qbx_core:GetPlayer(source)
     if not player then return end
-    
+
     -- Open shop logic here
     TriggerClientEvent('ox_lib:notify', source, {
         type = 'success',

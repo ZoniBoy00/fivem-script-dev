@@ -33,21 +33,10 @@ jobs:
           set -euo pipefail
           find templates -type f -name '*.lua' -print0 \
             | xargs -0 -r -n1 luac5.4 -p
-      - name: Lua lint report
+      - name: Markdown Lua block syntax check
         shell: bash
-        run: |
-          set -uo pipefail
-          failed=0
-          while IFS= read -r -d '' file; do
-            echo "Checking $file"
-            luacheck "$file" --no-max-line-length --no-unused-args || {
-              status=$?
-              # Template scaffolds intentionally contain warnings for FiveM globals,
-              # manifest directives, and placeholder sections. Syntax is gated above.
-              if [ "$status" -gt 1 ]; then
-                echo "::warning::Luacheck fatal/configuration result ($status) in $file"
-                failed=1
-              fi
-            }
-          done < <(find templates -type f -name '*.lua' -print0)
-          exit "$failed"
+        run: python3 scripts/check_lua_blocks.py luac5.4
+      - name: Lua lint
+        shell: bash
+        # FiveM globals and template allowances live in .luacheckrc; any warning fails the build.
+        run: luacheck templates

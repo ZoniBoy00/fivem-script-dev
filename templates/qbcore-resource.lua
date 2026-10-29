@@ -13,6 +13,10 @@ local Config = Config or {}
 -- CLIENT MAIN
 -- ============================================================================
 
+local function onPlayerLoaded()
+    print('Player loaded:', PlayerData.charinfo.firstname, PlayerData.charinfo.lastname)
+end
+
 -- Wait for the QBCore login state, not for GetPlayerData() to become nil.
 CreateThread(function()
     while not LocalPlayer.state.isLoggedIn do
@@ -21,12 +25,8 @@ CreateThread(function()
 
     isLoggedIn = true
     PlayerData = QBCore.Functions.GetPlayerData()
-    OnPlayerLoaded()
+    onPlayerLoaded()
 end)
-
-function OnPlayerLoaded()
-    print('Player loaded:', PlayerData.charinfo.firstname, PlayerData.charinfo.lastname)
-end
 
 -- Event-driven updates
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
@@ -55,7 +55,7 @@ end)
 -- QBCORE CALLBACK EXAMPLE
 -- ============================================================================
 
-function GetPlayerData(callback)
+local function requestPlayerData(callback)
     QBCore.Functions.TriggerCallback('myres:server:getPlayerData', function(data)
         if data then
             callback(data)
@@ -79,11 +79,11 @@ end
 CreateThread(function()
     while true do
         local sleep = 1000
-        
+
         if isLoggedIn then
             -- Player logic here
         end
-        
+
         Wait(sleep)
     end
 end)

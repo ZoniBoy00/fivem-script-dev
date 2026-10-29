@@ -1,93 +1,101 @@
 --[[
-    ESX resource scaffold
-    Replace 'myres' with your actual resource name
+    ESX resource scaffold (client + server sections)
+    Replace 'myres' with your actual resource name.
+
+    fxmanifest.lua:
+        shared_scripts { '@es_extended/imports.lua', 'shared/config.lua' }
+        client_scripts { 'client/main.lua' }
+        server_scripts { 'server/main.lua' }
+        dependency 'es_extended'
+
+    @es_extended/imports.lua defines the global `ESX` (and keeps ESX.PlayerData updated on the client).
 ]]
 
--- Core variables
-local PlayerData = {}
+-- ============================================================================
+-- CLIENT (client/main.lua)
+-- ============================================================================
+
 local isLoggedIn = false
-local Config = Config or {}  -- Loaded from shared/config.lua
 
--- ============================================================================
--- CLIENT MAIN
--- ============================================================================
-
--- Wait for player to load
-CreateThread(function()
-    while not ESX.IsPlayerLoaded() do
-        Wait(100)
-    end
-    
+local function onPlayerLoaded()
     isLoggedIn = true
-    PlayerData = ESX.GetPlayerData()
-    OnPlayerLoaded()
-end)
-
--- Player loaded callback
-function OnPlayerLoaded()
-    print('Player loaded:', PlayerData.identifier)
+    -- ESX.PlayerData.job, .accounts, .inventory are available here
 end
 
--- Player dropped
-RegisterNetEvent('esx:playerDropped')
-AddEventHandler('esx:playerDropped', function()
+RegisterNetEvent('esx:playerLoaded', function()
+    onPlayerLoaded()
+end)
+
+-- Resource restarted while the player is already loaded
+CreateThread(function()
+    if ESX.IsPlayerLoaded() then onPlayerLoaded() end
+end)
+
+-- Logout / character switch (server → client only)
+ESX.SecureNetEvent('esx:onPlayerLogout', function()
     isLoggedIn = false
-    PlayerData = {}
 end)
 
--- Job updated
-RegisterNetEvent('esx:setJob')
-AddEventHandler('esx:setJob', function(job)
-    PlayerData.job = job
+RegisterNetEvent('esx:setJob', function(job)
+    -- ESX.PlayerData.job is already updated by imports.lua; react to the change here
+    print('New job:', job.name)
 end)
 
--- ============================================================================
--- ESX CALLBACK EXAMPLE (Client to Server)
--- ============================================================================
-
-function GetPlayerData(callback)
-    ESX.TriggerServerCallback('myres:getPlayerData', function(data)
-        if data then
-            callback(data)
-        end
+-- Callback example (client → server)
+local function requestData()
+    ESX.TriggerServerCallback('myres:server:getData', function(data)
+        if data then print('Cash:', data.cash) end
     end)
 end
 
--- ============================================================================
--- INTERACTION ZONE (ox_lib)
--- ============================================================================
-
--- -- Uncomment if using ox_lib:
--- local shopZone = lib.zones.box({
---     coords = vector3(100.0, 200.0, 30.0),
---     size = vector3(3.0, 3.0, 2.0),
---     rotation = 0,
---     debug = false,
---     onEnter = function()
---         lib.showTextUI('[E] - Open shop', { icon = 'fa-solid fa-store' })
---     end,
---     onExit = function()
---         lib.hideTextUI()
---     end,
---     inside = function()
---         if IsControlJustPressed(0, 38) then
---             TriggerServerEvent('myres:server:openShop')
---         end
---     end,
--- })
-
--- ============================================================================
--- CLIENT THREAD (Variable wait pattern)
--- ============================================================================
+-- Interaction with ESX's own text UI (esx_textui)
+local SHOP_COORDS = vector3(100.0, 200.0, 30.0)
 
 CreateThread(function()
+    local shown = false
     while true do
         local sleep = 1000
-        
         if isLoggedIn then
-            -- Player logic here
+            local dist = #(GetEntityCoords(PlayerPedId()) - SHOP_COORDS)
+            if dist < 2.0 then
+                sleep = 0
+                if not shown then ESX.TextUI('[E] Open shop', 'info'); shown = true end
+                if IsControlJustPressed(0, 38) then
+                    TriggerServerEvent('myres:server:openShop')
+                    requestData()
+                end
+            elseif shown then
+                ESX.HideUI(); shown = false
+            elseif dist < 30.0 then
+                sleep = 250
+            end
         end
-        
         Wait(sleep)
     end
 end)
+
+-- ============================================================================
+-- SERVER (server/main.lua)
+-- ============================================================================
+
+--[[
+local SHOP_COORDS = vector3(100.0, 200.0, 30.0)
+
+ESX.RegisterServerCallback('myres:server:getData', function(source, cb)
+    local xPlayer = ESX.GetPlayerFromId(source)
+    if not xPlayer then return cb(nil) end
+    cb({ cash = xPlayer.getMoney(), job = xPlayer.getJob().name })
+end)
+
+RegisterNetEvent('myres:server:openShop', function()
+    local src = source                         -- capture before any yield
+    if GetInvokingResource() then return end
+
+    local xPlayer = ESX.GetPlayerFromId(src)
+    if not xPlayer then return end
+
+    if #(GetEntityCoords(GetPlayerPed(src)) - SHOP_COORDS) > 5.0 then return end
+
+    xPlayer.showNotification('Shop opened!', 'success')
+end)
+]]

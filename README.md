@@ -12,13 +12,13 @@
 ## 📦 What's Inside
 
 ```
-gaming/fivem-script-dev/
+fivem-script-dev/
 ├── SKILL.md                           ← Master reference + usage guide
 ├── references/                        ← 21 focused reference documents
 │   ├── fivem-basics.md               Resource structure, manifest, events
 │   ├── lua-for-fivem.md              Lua best practices for FiveM
 │   ├── scripting-languages.md        Lua vs JS vs C# comparison
-│   ├── esx-framework.md              ESX (xPlayer, jobs, inventory)
+│   ├── esx-framework.md              ESX (xPlayer, esx_lib, esx_notify, inventory)
 │   ├── qbcore-framework.md           QBCore (Player, jobs, gangs)
 │   ├── qbox-framework.md             QBox (bridge, FAQ, QBCore→QBox)
 │   ├── ox-lib.md                     UI, callbacks, zones, commands
@@ -30,15 +30,16 @@ gaming/fivem-script-dev/
 │   ├── custom-integrations.md        Paid scripts, custom notify/target
 │   ├── fivem-nui.md                  NUI HTML/JS ↔ FiveM communication
 │   ├── fivem-security.md             Anti-exploit, server authority
-│   ├── onesync.md                    Routing buckets, entity migration
+│   ├── onesync.md                    Entity lockdown, server spawns, buckets
 │   ├── server-cfg.md                 Convars, game builds, commands
 │   ├── error-handling.md             pcall, debugging, defensive code
 │   ├── other-resources.md            Fivemanage, state bags
 │   ├── documentation-and-versioning.md Official-source and freshness checks
 │   └── optimization.md               Variable wait, caching, events
+├── scripts/check_lua_blocks.py        ← CI syntax check for ```lua blocks
 └── templates/                         ← 9 adaptable templates
     ├── fxmanifest.lua                 Universal manifest template
-    ├── nui/                           Full NUI scaffold (HTML/CSS/JS)
+    ├── nui/                           Full NUI scaffold (client.lua + HTML/CSS/JS)
     ├── esx-resource.lua               ESX resource scaffold
     ├── qbcore-resource.lua            QBCore resource scaffold
     ├── qbox-resource.lua              QBox resource scaffold
@@ -73,12 +74,20 @@ When asking an AI to help with a specific task, include the relevant reference:
 
 ### Option 2: Load the full pack into an AI agent
 
-If your AI agent supports skills (like Hermes, Claude Code, OpenCode):
+If your AI agent supports skills, copy the folder into its skills directory:
 
 ```bash
-# Copy the skill into your AI agent's skills directory
+# Claude Code — personal (all projects)
+git clone https://github.com/ZoniBoy00/fivem-script-dev ~/.claude/skills/fivem-script-dev
+
+# Claude Code — one project only (commit it with the project)
+git clone https://github.com/ZoniBoy00/fivem-script-dev .claude/skills/fivem-script-dev
+
+# Hermes
 cp -r fivem-script-dev ~/.hermes/skills/gaming/
 ```
+
+The folder name must match `name:` in `SKILL.md` (`fivem-script-dev`).
 
 The AI will then automatically reference the correct patterns when you ask FiveM-related questions.
 
@@ -148,7 +157,7 @@ Before shipping generated code:
 1. Verify current native and dependency APIs against official documentation.
 2. Check the upstream repository's current branch, release/commit date, archive status, and referenced exports or paths.
 3. Test server-side validation with malformed, replayed, distant, and rate-limited requests.
-4. Run the repository's Lua lint and reference-file validation checks.
+4. Run the repository checks: `luac -p` on templates, `python scripts/check_lua_blocks.py`, and `luacheck templates`.
 5. Test inventory and money changes for capacity failures, disconnects, and duplicate requests.
 6. Keep webhooks and other secrets in server-side convars, never in committed files.
 

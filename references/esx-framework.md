@@ -1,62 +1,91 @@
 # ESX Legacy Framework Development
 
+> Verified against `esx-framework/esx_core` **1.16.x**. Older ESX (1.1–1.9, `esx:getSharedObject` event) differs — check the server's `es_extended/fxmanifest.lua` version before using newer APIs.
+
 ## Core Concepts
 
-ESX Legacy is the #1 FiveM roleplay framework (since 2017). Uses `xPlayer` objects for server-side player management.
+ESX Legacy uses `xPlayer` objects for server-side player management. The official stack in `esx_core` now includes its own UI and utility resources:
+
+| Resource | Purpose | API |
+|----------|---------|-----|
+| `es_extended` | Core, xPlayer, items, accounts | `ESX.*`, `xPlayer.*` |
+| `esx_lib` | Utility library (ox_lib-derived) | global `xLib` via `@esx_lib/imports.lua` |
+| `esx_notify` | Notifications | `ESX.ShowNotification`, `xPlayer.showNotification` |
+| `esx_textui` | Text UI | `ESX.TextUI(msg, type)`, `ESX.HideUI()` |
+| `esx_progressbar` | Progress bar | `ESX.Progressbar(msg, ms, options)` |
+| `esx_context` | Context menus | `ESX.OpenContext(...)` |
+| `esx_inventory` | NUI inventory (es_extended stays the authority) | xPlayer item methods |
+
+ox_lib / ox_inventory / ox_target are optional on ESX. es_extended has built-in ox_inventory support (`Config.CustomInventory = 'ox'`); xPlayer item methods keep working.
+
+### Getting the ESX object
+
+```lua
+-- fxmanifest.lua (recommended)
+shared_script '@es_extended/imports.lua'   -- defines global ESX (and ESX.PlayerData on client)
+
+-- or manually
+-- local ESX = exports['es_extended']:getSharedObject()
+```
 
 ### Framework Initialization
 
 **Client:**
 ```lua
--- Wait for player to load before accessing data
+-- PlayerData is kept up to date by @es_extended/imports.lua
+RegisterNetEvent('esx:playerLoaded', function(xPlayerData)
+    -- player is ready; xPlayerData.job, .accounts, .inventory...
+end)
+
+RegisterNetEvent('esx:setJob', function(job, lastJob)
+    -- job changed
+end)
+
+-- Logout / character switch (sent only by the server)
+ESX.SecureNetEvent('esx:onPlayerLogout', function()
+    -- cleanup
+end)
+
+-- If your resource may start after the player has loaded:
 CreateThread(function()
-    while not ESX.IsPlayerLoaded() do
-        Wait(100)
-    end
-    -- Player is ready
-    local PlayerData = ESX.GetPlayerData()
-end)
-
--- On player loaded event
-RegisterNetEvent('esx:playerLoaded')
-AddEventHandler('esx:playerLoaded', function(xPlayerData)
-    PlayerData = xPlayerData
-end)
-
--- On player data update
-RegisterNetEvent('esx:setJob')
-AddEventHandler('esx:setJob', function(job)
-    PlayerData.job = job
+    while not ESX.IsPlayerLoaded() do Wait(200) end
+    local data = ESX.GetPlayerData()
 end)
 ```
 
 **Server:**
 ```lua
--- In any server event, source is the triggering player
-local xPlayer = ESX.GetPlayerFromId(source)
-if not xPlayer then return end  -- Always validate!
+RegisterNetEvent('myres:server:doThing', function()
+    local src = source                       -- capture before any yield
+    local xPlayer = ESX.GetPlayerFromId(src)
+    if not xPlayer then return end
+end)
+
+-- Server-side lifecycle
+AddEventHandler('esx:playerLoaded', function(playerId, xPlayer, isNew) end)
+AddEventHandler('esx:playerDropped', function(playerId, reason) end)
 ```
 
 ## Key Principles
 
-1. **Always check for nil** — `if xPlayer then ... end` before ANY xPlayer access
-2. **Use `ESX.GetPlayerFromId(source)`** for standard retrieval (not `ESX.GetPlayerFromIdentifier`)
-3. **Wait for player load** — check `ESX.IsPlayerLoaded()` on client before using PlayerData
-4. **Never trust client** — validate ALL data server-side
-5. **Use ox_lib for UI** — over ESX built-in UI systems
-6. **Don't modify core ESX files** — use exports/events instead
-7. **Use SecureNetEvent** for events that shouldn't be triggered from arbitrary resources
+1. **Always check for nil** — `ESX.GetPlayerFromId` returns nil for unloaded/disconnected players.
+2. **Capture `source` first** — `local src = source` before any `Wait`/await.
+3. **Check return values** — `removeMoney`/`removeAccountMoney` return `false` when the balance is insufficient.
+4. **Never trust the client** — prices, amounts, item names and distances are validated server-side.
+5. **Use the ESX UI the server runs** — `esx_notify`/`esx_textui`/`esx_context` by default; ox_lib only if installed.
+6. **Don't modify core ESX files** — use exports/events from your own resource.
 
 ## Get Player
 
 ```lua
 -- Server
-local xPlayer = ESX.GetPlayerFromId(source)         -- By server ID
-local xPlayer = ESX.GetPlayerFromIdentifier(identifier)  -- By identifier (steam, license, etc.)
-local players = ESX.GetPlayers()                     -- All online players
+local xPlayer = ESX.GetPlayerFromId(src)
+local xPlayer = ESX.GetPlayerFromIdentifier(identifier)
+local xPlayers = ESX.GetExtendedPlayers()            -- all xPlayers
+local police = ESX.GetExtendedPlayers('job', 'police') -- filtered
 
 -- Client
-local PlayerData = ESX.GetPlayerData()               -- Current player's data
+local PlayerData = ESX.GetPlayerData()
 ```
 
 ## xPlayer Methods
@@ -64,212 +93,158 @@ local PlayerData = ESX.GetPlayerData()               -- Current player's data
 ### Money & Accounts
 
 ```lua
--- Cash
-xPlayer.addMoney(amount)
-xPlayer.removeMoney(amount)
+xPlayer.addMoney(amount, 'reason')
+local ok = xPlayer.removeMoney(amount, 'reason')        -- false if not enough
 local cash = xPlayer.getMoney()
 
--- Bank
-xPlayer.addAccountMoney('bank', amount)
-xPlayer.removeAccountMoney('bank', amount)
+xPlayer.addAccountMoney('bank', amount, 'reason')
+local ok = xPlayer.removeAccountMoney('bank', amount, 'reason')
 local bank = xPlayer.getAccount('bank').money
 
--- Other accounts (black money, etc.)
-xPlayer.addAccountMoney('black_money', amount)
 local black = xPlayer.getAccount('black_money').money
 ```
 
-### Inventory (ESX built-in)
+### Inventory
 
 ```lua
--- Check & modify items
-local item = xPlayer.getInventoryItem(itemName)
-local count = item.count
-local weight = item.weight
-local limit = item.limit  -- max stack size, nil = unlimited
+local item = xPlayer.getInventoryItem('water')   -- { name, label, count, weight, ... } or nil
+local count = item and item.count or 0
+local has = xPlayer.hasItem('water')
 
--- Add item
-if xPlayer.canCarryItem(itemName, amount) then
-    xPlayer.addInventoryItem(itemName, amount)
+if xPlayer.canCarryItem('water', 2) then
+    xPlayer.addInventoryItem('water', 2)
 end
+xPlayer.removeInventoryItem('water', 1)
 
--- Remove item
-xPlayer.removeInventoryItem(itemName, amount)
-
--- Check weight
-local currentWeight = xPlayer.getWeight()
-local maxWeight = xPlayer.getMaxWeight()
+local weight, maxWeight = xPlayer.getWeight(), xPlayer.getMaxWeight()
 ```
 
 ### Weapons
 
 ```lua
-xPlayer.addWeapon(weaponName, ammo)           -- Give weapon
-xPlayer.removeWeapon(weaponName)               -- Remove weapon
-xPlayer.addWeaponAmmo(weaponName, ammo)        -- Add ammo
-xPlayer.removeWeaponAmmo(weaponName, ammo)     -- Remove ammo
-xPlayer.addWeaponComponent(weaponName, component)  -- Add component (suppressor, grip, etc.)
-xPlayer.removeWeaponComponent(weaponName, component) -- Remove component
+xPlayer.addWeapon('WEAPON_PISTOL', 50)
+xPlayer.removeWeapon('WEAPON_PISTOL')
+xPlayer.addWeaponAmmo('WEAPON_PISTOL', 20)
+xPlayer.addWeaponComponent('WEAPON_PISTOL', 'clip_extended')
+local has = xPlayer.hasWeapon('WEAPON_PISTOL')
 ```
 
 ### Jobs
 
 ```lua
 local job = xPlayer.getJob()
-print(job.name)    -- 'police', 'mechanic', 'unemployed'
-print(job.label)   -- 'Police', 'Mechanic'
-print(job.grade)   -- 0-12 (number)
-print(job.grade_label)  -- 'Cadet', 'Officer', 'Chief'
+-- job.name, job.label, job.grade (number), job.grade_name, job.grade_label, job.grade_salary
 
--- Set job
-xPlayer.setJob(jobName, grade)
--- Example: xPlayer.setJob('police', 1)
-
--- Salary (automatic on payday, or manual)
-xPlayer.addAccountMoney('bank', job.salary)
+xPlayer.setJob('police', 1)
 ```
 
-### Coordinates & Teleport
+### Coordinates
 
 ```lua
--- Get coords
-local coords = xPlayer.getCoords()  -- returns vector3
-
--- Set coords (teleport client)
-xPlayer.setCoords(x, y, z)
+local coords = xPlayer.getCoords(true)          -- vector3 (pass true for a vector)
+xPlayer.setCoords(vector3(x, y, z))             -- teleport; returns false on invalid coords
 ```
 
 ### Metadata
 
 ```lua
-xPlayer.setMeta('hunger', 100)
-xPlayer.setMeta('thirst', 100)
 xPlayer.setMeta('stress', 0)
-
-local hunger = xPlayer.getMeta('hunger')
+local stress = xPlayer.getMeta('stress')
+xPlayer.clearMeta('stress')
 ```
 
-## ESX Events
-
-### TriggerServerCallback (client → server with return)
+### Notifications & UI from the server
 
 ```lua
--- Client: request data from server
-ESX.TriggerServerCallback('myres:getPlayerItems', function(items)
-    if items then
-        -- Use items data
-    end
-end)
+xPlayer.showNotification('Item purchased!', 'success', 3000)
+xPlayer.showHelpNotification('Press ~INPUT_CONTEXT~ to interact')
+-- or: TriggerClientEvent('esx:showNotification', src, 'Text', 'success')
+```
 
--- Server: register callback
-ESX.RegisterServerCallback('myres:getPlayerItems', function(source, cb)
+## Callbacks
+
+```lua
+-- Server
+ESX.RegisterServerCallback('myres:getItems', function(source, cb)
     local xPlayer = ESX.GetPlayerFromId(source)
-    if not xPlayer then cb({}) return end
-    
-    local items = xPlayer.getInventory()
-    cb(items)
+    if not xPlayer then return cb({}) end
+    cb(xPlayer.getInventory(true))
+end)
+
+-- Client
+ESX.TriggerServerCallback('myres:getItems', function(items)
+    -- use items
 end)
 ```
 
-### SecureNetEvent
+`lib.callback` (ox_lib) is a valid alternative when ox_lib is installed.
+
+## Usable Items
 
 ```lua
--- Prevents other resources from triggering this event
-RegisterNetEvent('esx:secure:myEvent')
-AddEventHandler('esx:secure:myEvent', function(data)
-    if GetInvokingResource() then return end  -- Only from same resource
-    
+-- Server
+ESX.RegisterUsableItem('bandage', function(source)
     local xPlayer = ESX.GetPlayerFromId(source)
-    -- handle event
+    if not xPlayer then return end
+    xPlayer.removeInventoryItem('bandage', 1)
+    TriggerClientEvent('myres:client:useBandage', source)
 end)
 ```
 
-### Show Notification
-```lua
-TriggerClientEvent('esx:showNotification', source, '~g~Item purchased!')
-```
+## `ESX.SecureNetEvent` (client-side)
 
-## ESX Client Functions
+`ESX.SecureNetEvent(name, handler)` is a **client** helper for **server → client** events. It is not a server-side guard and does not validate client requests. Server net events still need full server-side validation.
 
 ```lua
--- Show Help Text
-ESX.ShowHelpNotification('Press ~INPUT_CONTEXT~ to interact')
-
--- Show Advanced Notification (with icon, color, etc.)
-ESX.ShowAdvancedNotification('Shop', 'Purchase', 'You bought an item', 'CHAR_BLOCKED', 0)
-
--- Displays
-ESX.Game.Utils.DrawText3D(coords, 'Text', 0.4)
-
--- Progressbar (ESX built-in)
-ESX.Progressbar('Working...', 3000, function()
-    print('Done!')
+-- Client
+ESX.SecureNetEvent('myres:client:setState', function(state)
+    -- runs only for events sent by the server
 end)
 ```
 
-## ESX Jobs & Economy
+## Client UI Helpers
 
 ```lua
--- Server: check if player has specific job
-local xPlayer = ESX.GetPlayerFromId(source)
-if xPlayer and xPlayer.getJob().name == 'police' then
-    -- Do police stuff
+ESX.ShowNotification('Saved', 'success', 3000)
+ESX.ShowHelpNotification('Press ~INPUT_CONTEXT~ to open')
+ESX.TextUI('[E] Open shop', 'info')
+ESX.HideUI()
+
+ESX.Progressbar('Repairing...', 5000, {
+    FreezePlayer = true,
+    animation = { type = 'anim', dict = 'mini@repair', lib = 'fixing_a_ped' },
+    onFinish = function() end,
+    onCancel = function() end,
+})
+```
+
+## Jobs & Society
+
+```lua
+local xPlayer = ESX.GetPlayerFromId(src)
+if xPlayer and xPlayer.getJob().name == 'police' and xPlayer.getJob().grade >= 3 then
+    -- authorized
 end
 
--- Server: check grade level
-local grade = xPlayer.getJob().grade
-if grade >= 5 then
-    -- Higher rank actions
-end
-
--- Society funds (shared job money)
+-- Society accounts (esx_society + esx_addonaccount must be installed)
 TriggerEvent('esx_society:getSociety', 'police', function(society)
-    if society then
-        society.addMoney(amount)
-        society.removeMoney(amount)
-        local money = society.getMoney()
-    end
+    if not society then return end
+    TriggerEvent('esx_addonaccount:getSharedAccount', society.account, function(account)
+        if account then account.addMoney(100) end
+    end)
 end)
-```
-
-## ESX Configuration
-
-```lua
--- es_extended/config.lua typically has:
-Config = {
-    EnablePaycheck = true,
-    PaycheckTimer = 10 * 60 * 1000,  -- 10 minutes
-    Multicharacter = false,
-    Identity = false,
-    
-    -- Optional modules
-    EnableHud = false,
-    EnablePvP = true,
-    
-    -- Accounts
-    Accounts = {
-        'money',        -- Cash
-        'bank',         -- Bank
-        'black_money',  -- Black money
-    },
-}
 ```
 
 ## ESX Best Practices
 
-1. **ALWAYS validate xPlayer exists** — players disconnect mid-event
-2. **Use `xPlayer.canCarryItem()`** before adding items
-3. **Never handle money/items client-side** — server is single source of truth
-4. **Use ESX's callback system** instead of chained events for data requests
-5. **Group related items in jobs** (e.g. all police items under one category)
-6. **Use ox_lib for UI** — ESX built-in menus are deprecated
-7. **Prefix exports** with resource name to avoid conflicts
+1. Validate `xPlayer` after every lookup.
+2. Check `canCarryItem` before adding and the return value of `removeMoney` before granting anything.
+3. Keep all money/item changes server-side.
+4. Use `ESX.GetExtendedPlayers(key, value)` instead of looping all players manually.
+5. Use the framework's own UI (`esx_notify`, `esx_textui`, `esx_context`) unless the server standardizes on ox_lib.
+6. Prefix events/exports with your resource name.
 
 ## ESX Documentation
 
-- Full docs: https://docs.esx-framework.org/en/
-- Core reference: https://docs.esx-framework.org/en/esx_core/
-- Client functions: https://docs.esx-framework.org/en/esx_core/es_extended/client/functions
-- Server functions: https://docs.esx-framework.org/en/esx_core/es_extended/server/functions
-- Configuration: https://docs.esx-framework.org/en/esx_core/es_extended/config/main
+- Docs: https://docs.esx-framework.org/
 - GitHub: https://github.com/esx-framework/esx_core

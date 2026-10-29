@@ -5,12 +5,12 @@
 ### ❌ Bad Pattern — Wait(0) Everywhere
 
 ```lua
--- This thread runs EVERY TICK (60 times/sec) even when nothing is near
+-- This thread runs EVERY FRAME even when nothing is near
 Citizen.CreateThread(function()
     while true do
         local coords = GetEntityCoords(PlayerPedId())
         local dist = #(coords - vector3(100, 200, 30))
-        
+
         if dist < 50 then
             DrawMarker(1, 100, 200, 29, 0, 0, 0, 0, 0, 0, 2.0, 2.0, 2.0, 255, 0, 0, 100)
             if dist < 2 then
@@ -19,8 +19,8 @@ Citizen.CreateThread(function()
                 end
             end
         end
-        
-        Citizen.Wait(0)  -- ❌ 60 FPS check when player is 500m away
+
+        Citizen.Wait(0)  -- ❌ per-frame check when player is 500m away
     end
 end)
 ```
@@ -34,11 +34,11 @@ Citizen.CreateThread(function()
         local sleep = 1000  -- Default: check once per second
         local coords = GetEntityCoords(PlayerPedId())
         local dist = #(coords - vector3(100, 200, 30))
-        
+
         if dist < 50.0 then
             sleep = 100       -- Faster check within 50m
             DrawMarker(1, 100, 200, 29, 0, 0, 0, 0, 0, 0, 2.0, 2.0, 2.0, 255, 0, 0, 100)
-            
+
             if dist < 2.0 then
                 sleep = 0     -- Every tick when close enough
                 if IsControlJustPressed(0, 38) then
@@ -46,7 +46,7 @@ Citizen.CreateThread(function()
                 end
             end
         end
-        
+
         Citizen.Wait(sleep)
     end
 end)
@@ -99,10 +99,10 @@ Citizen.CreateThread(function()
         local health = GetEntityHealth(ped)
         local armor = GetPedArmour(ped)
         local coords = GetEntityCoords(ped)
-        
+
         -- Use
         SetPedArmour(ped, armor + 1)
-        
+
         Citizen.Wait(0)
     end
 end)
@@ -120,7 +120,7 @@ Citizen.CreateThread(function()
         local health = GetEntityHealth(playerPed)
         local armor = GetPedArmour(playerPed)
         SetPedArmour(playerPed, armor + 1)
-        
+
         Citizen.Wait(500)
     end
 end)
@@ -154,14 +154,13 @@ Citizen.CreateThread(function()
     end
 end)
 
--- ✅ Good: Use state bags for synced data
--- (Server)
-Entity(ped).state:set('position', GetEntityCoords(ped), true)  -- true = replicate
+-- ✅ Good: the server reads positions itself (OneSync syncs entity coords)
+local coords = GetEntityCoords(GetPlayerPed(src))
 
--- (Client)
-AddStateBagChangeHandler('position', nil, function(bagName, key, value)
-    -- Only triggered when position actually changes
-    print('Position updated:', value)
+-- ✅ Good: state bags for low-frequency shared STATE (not positions)
+Entity(vehicle).state:set('locked', true, true)
+AddStateBagChangeHandler('locked', nil, function(bagName, key, value)
+    -- fires only when the value changes
 end)
 ```
 
@@ -194,9 +193,10 @@ end
 
 ### Profile Resources
 
-- Use server console: `client:profiling record` and `client:profiling stop` for FPS timing
-- Look for warning: `[resource] is taking [time] ms` — if over 5ms average, optimize
-- Use ETW (Windows) for detailed profiling
+- **Quick view:** F8 → `resmon 1` (client) shows per-resource CPU ms and memory.
+- **Profiler:** `profiler record 500` (records 500 frames) → `profiler view` opens the result in the browser/DevTools. Works in the F8 client console and the server console.
+- Server console warnings like `[resource] took X ms` point at heavy server ticks.
+- Aim for idle resources near 0.00 ms; anything consistently above ~0.1 ms at idle is worth investigating.
 
 ## Client Optimization Quick Checklist
 
@@ -210,7 +210,7 @@ end
 - [ ] Ox zones used instead of manual distance-check loops
 - [ ] Event handlers used instead of polling where possible
 - [ ] Can't-carry-item checks done before adding inventory items
-- [ ] Resource performance profile < 5ms average per frame
+- [ ] Idle resmon cost near 0.00 ms; no unbounded `Wait(0)` loops
 
 ## Links
 

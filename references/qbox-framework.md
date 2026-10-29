@@ -19,7 +19,7 @@ QBox's goal is improving upon QBCore while maintaining backwards compatibility. 
 | Inventory | qb-inventory | ox_inventory (default) |
 | Targeting | qb-target | ox_target (default) |
 | Notifications | `QBCore.Functions.Notify()` | ox_lib notifications |
-| Progress bar | qb-progress | ox_lib progressBar |
+| Progress bar | `QBCore.Functions.Progressbar` (progressbar resource) | ox_lib progressBar |
 | Multicharacter | qb-multicharacter | Built into qbx_core |
 | Items config | qb-core/shared/items.lua | ox_inventory/data/items.lua |
 | Code quality | Community-driven | Strict standards + active contributors |
@@ -105,20 +105,23 @@ if not player then return end
 
 ```lua
 -- Server
-local player = exports.qbx_core:GetPlayer(source)
+local src = source
+local player = exports.qbx_core:GetPlayer(src)
 if not player then return end
 
--- Native QBox money exports
-exports.qbx_core:AddMoney(source, 'cash', amount, 'Example reward')
-exports.qbx_core:RemoveMoney(source, 'bank', amount, 'Example purchase')
+-- Native QBox exports (identifier = server ID or citizenid)
+exports.qbx_core:Notify(src, 'Paid!', 'success')
+exports.qbx_core:AddMoney(src, 'cash', amount, 'Example reward')
+local ok = exports.qbx_core:RemoveMoney(src, 'bank', amount, 'Example purchase') -- false if insufficient
+local hasJob = exports.qbx_core:HasGroup(src, 'police')
 
 -- Player data access
-player.PlayerData.job.name           -- 'police'
-player.PlayerData.job.grade          -- 0-12
-player.PlayerData.charinfo.firstname
-player.PlayerData.charinfo.lastname
-player.PlayerData.charinfo.phone
-player.PlayerData.metadata
+local jobName = player.PlayerData.job.name          -- 'police'
+local grade = player.PlayerData.job.grade.level     -- number (grade is { name, level })
+local first = player.PlayerData.charinfo.firstname
+local last = player.PlayerData.charinfo.lastname
+local phone = player.PlayerData.charinfo.phone
+local meta = player.PlayerData.metadata
 ```
 
 ### Inventory (ox_inventory)
@@ -141,37 +144,28 @@ local items = exports.ox_inventory:GetInventoryItems(source)
 -- Verify the current signature in QBox/ox_inventory docs before implementation.
 ```
 
-### Items — Dual Config
+### Items — ox_inventory only
 
-With QBox, configure the item in the inventory first. Add the QBox shared-item definition only when a QB bridge consumer specifically needs it:
-
-1. **`ox_inventory/data/items.lua`** — Primary inventory definition, including client/server behaviour.
-2. **`qbx_core/shared/items.lua`** — Optional compatibility definition for resources using the QB bridge; do not duplicate it by default.
+Define items in **`ox_inventory/data/items.lua`**. `qbx_core/shared/items.lua` is deprecated (empty; anything placed there is converted on restart) — do not add new items to it.
 
 ```lua
--- qbx_core/shared/items.lua (bridge compatibility)
-['water'] = {
-    label = 'Water',
-    weight = 500,
-    stack = true,
-    description = 'A bottle of fresh water',
-}
-
--- ox_inventory/data/items.lua (full configuration)
-['water'] = {
-    label = 'Water',
-    weight = 500,
-    stack = true,
-    close = true,
-    description = 'A bottle of fresh water',
-    client = {
-        anim = { dict = 'mp_player_intdrink', clip = 'loop_bottle' },
-        prop = { model = 'prop_ld_flow_bottle', pos = vec3(0.03, 0.03, 0.02), rot = vec3(0.0, 0.0, -1.5) },
-        usetime = 3,
-        cancel = true,
-    },
-    server = {
-        export = 'myresource.useWater',
+-- ox_inventory/data/items.lua
+return {
+    ['water'] = {
+        label = 'Water',
+        weight = 500,
+        stack = true,
+        close = true,
+        description = 'A bottle of fresh water',
+        client = {
+            anim = { dict = 'mp_player_intdrink', clip = 'loop_bottle' },
+            prop = { model = 'prop_ld_flow_bottle', pos = vec3(0.03, 0.03, 0.02), rot = vec3(0.0, 0.0, -1.5) },
+            usetime = 3000, -- ms
+            cancel = true,
+        },
+        server = {
+            export = 'myresource.water', -- calls exports.myresource:water(event, item, inventory, slot, data)
+        },
     },
 }
 ```
@@ -203,23 +197,17 @@ Download the latest release/commit for that resource. Archived resources may nee
 
 ### Custom multicharacter
 
-In `qbx_core/config/client.lua`:
-```lua
-useExternalCharacters = false,  -- Set to true if using external char management
-```
+In `qbx_core/config/client.lua` set `useExternalCharacters = true` (inside the characters table) when using an external character resource.
 
 If stuck on loading screen: Make sure your multicharacter resource calls `ShutdownLoadingScreen()` and `ShutdownLoadingScreenNui()` natives.
 
 ### Custom notification system
 
-Modify `ox_lib` to pass the event to your notification system.
+Don't edit ox_lib. Point your own scripts at a notify wrapper (see `custom-integrations.md`), or use the `notifyPosition` options in `qbx_core/config/shared.lua` for styling.
 
 ### Vehicle models starting with a number
 
-Enclose in square brackets:
-```lua
-['5vigero'] = { label = '5Vigero', ... }
-```
+Enclose the key in square brackets and quotes, e.g. `['5vigero'] = { ... }` — `5vigero = {}` is a Lua syntax error.
 
 ### Keybind changes not working
 
@@ -227,10 +215,7 @@ Clear binds manually — changes don't apply retroactively to connected clients.
 
 ### SCRIPT ERROR: failed to load model
 
-Adjust timeout in `qbx_core/config/client.lua`:
-```lua
-loadingModelsTimeout = 10000,  -- Increase from default
-```
+Raise `loadingModelsTimeout` in `qbx_core/config/client.lua` (default 30000 ms).
 
 ### Foreign key constraint errors
 
@@ -249,7 +234,7 @@ DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 **Stick with QBCore if:**
 - You have many custom resources that use undocumented QBCore internals
 - Your resource dependencies only support QBCore
-- You don't want to deal with dual item configs
+- You rely on qb-inventory-specific features or item metadata formats
 
 ## QBox Resources
 

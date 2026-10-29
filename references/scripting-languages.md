@@ -32,11 +32,11 @@ client_script 'MyResourceClient.net.dll' -- .net.dll → Mono runtime
 
 **Runtime:** CfxLua (Lua 5.4 as of June 2025, Lua 5.3 deprecated)
 
-Lua is the dominant language in the FiveM ecosystem — used by ~95% of resources. The runtime is modified from standard Lua to support:
+Lua is the dominant language in the FiveM ecosystem. The runtime is modified from standard Lua to support:
 - `Citizen.CreateThread()` / `Citizen.Wait()` — cooperative threading
 - Built-in `vector2()`, `vector3()`, `vector4()` — native vector support
 - Direct access to all FiveM natives
-- `PerformHttpRequest()` / `PerformHttpRequestAwait()` — HTTP requests
+- `PerformHttpRequest()` / `PerformHttpRequestAwait(url, method, data, headers)` — HTTP requests (server)
 - `GetGameTimer()` — millisecond timer
 
 ### Lua 5.4 Changes (June 2025)
@@ -50,8 +50,8 @@ Lua is the dominant language in the FiveM ecosystem — used by ~95% of resource
 
 ```lua
 AddEventHandler(eventName, handler)        -- Listen for events
-Citizen.CreateThread(function)             -- Spawn a thread
-Citizen.Wait(milliseconds)                 -- Yield thread
+Citizen.CreateThread(fn)                   -- Spawn a thread (alias: CreateThread)
+Citizen.Wait(milliseconds)                 -- Yield thread (alias: Wait)
 Citizen.Await(promise)                     -- Await a promise
 RegisterNetEvent(eventName)                -- Register networked event
 TriggerServerEvent(event, ...)             -- Send to server
@@ -65,9 +65,9 @@ RegisterCommand(name, handler, restricted) -- Register chat command
 local pos = vector3(100.0, 200.0, 30.0)
 local dist = #(pos1 - pos2)                -- Distance calculation
 
--- HTTP
-PerformHttpRequest(url, callback, method, data, headers)
-local result = PerformHttpRequestAwait(url, options)
+-- HTTP (server)
+PerformHttpRequest(url, function(status, body, headers) end, 'GET', '', {})
+local status, body, headers = PerformHttpRequestAwait(url, 'GET', '', {}) -- must run inside a thread/handler
 ```
 
 ## JavaScript Scripting
@@ -76,11 +76,10 @@ local result = PerformHttpRequestAwait(url, options)
 
 JS scripts use FiveM-specific globals that mirror Lua functionality:
 
-```js
-// fxmanifest.lua
-client_script 'client.js'
-// or with custom Node.js version:
-node_version '22'
+```lua
+-- fxmanifest.lua
+server_script 'server.js'
+node_version '22' -- server-side JS only; default is 16
 ```
 
 ### JavaScript-Specific API
@@ -204,7 +203,7 @@ For proper line numbers in error traces, embed portable PDBs:
 | Feature | Lua | JavaScript | C# |
 |---------|-----|-----------|-----|
 | **Setup complexity** | Low (single file) | Low (single file) | High (VS project, build) |
-| **Community adoption** | ~95% of resources | ~3% of resources | ~2% of resources |
+| **Community adoption** | Dominant | Common for tooling/NUI-heavy resources | Niche |
 | **Performance (client)** | Fast | Fast | Fast (JIT after warmup) |
 | **Performance (server)** | Fast | Fast | Fastest (compiled) |
 | **Threading model** | Coroutines (`Citizen.Wait`) | Promises/async | async/await |

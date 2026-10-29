@@ -138,15 +138,27 @@ end
 local pos = vector3(100.0, 200.0, 30.0)
 print(pos.x, pos.y, pos.z)
 
--- Distance calculation (native-accelerated, use instead of GetDistanceBetweenCoords)
+-- Distance calculation (no native call, use instead of GetDistanceBetweenCoords)
 local dist = #(pos1 - pos2)          -- ✅ Fast
-local dist = GetDistanceBetweenCoords(p1, p2, true)  -- ❌ Slow
+-- GetDistanceBetweenCoords(x1, y1, z1, x2, y2, z2, true)  -- ❌ Slower native call
 
 -- Clamp
 local clamped = math.max(0, math.min(100, value))
 
 -- Round
 local rounded = math.floor(value * 100) / 100  -- 2 decimals
+```
+
+## Lua 5.4 Features (CfxLua)
+
+```lua
+local MAX <const> = 10          -- compile-time constant
+local half = 7 // 2             -- integer (floor) division → 3
+for i = 1, 10 do
+    if i % 2 == 0 then goto continue end
+    print(i)
+    ::continue::
+end
 ```
 
 ## Performance Rules
@@ -163,9 +175,9 @@ local rounded = math.floor(value * 100) / 100  -- 2 decimals
 ## Common Lua Pitfalls
 
 1. **Tables are 1-indexed** — `t[1]` is first element, not `t[0]`
-2. **No integer division** — `5 / 2 = 2.5`, use `math.floor(5 / 2)` for integer
+2. **`/` always returns a float** — `5 / 2 = 2.5`; use floor division `5 // 2` (Lua 5.4) or `math.floor`
 3. **No continue statement** — use `if not condition then goto continue end` or wrap in `if`
-4. **Global by default** — forgetting `local` makes it global (and leaks memory)
+4. **Global by default** — forgetting `local` makes it global to the whole resource (shared across all its scripts on that side)
 5. **`#t` counts only sequential integer keys** — stops at first nil, doesn't work on mixed tables
 6. **`==` compares tables by reference** — not by content
 7. **No classes** — use tables + metatables for OOP patterns

@@ -6,79 +6,75 @@ The client is fully compromised. Every action affecting game state, economy, or 
 
 ## Golden Rules
 
-1. **Server Authority** — Server dictates truth. Client only requests.
-2. **Never Trust Parameters** — Validate ALL arguments from client (don't blindly accept amounts)
-3. **Distance Checks** — Always verify distance server-side before allowing interaction
-4. **Rate Limiting** — Prevent event spamming with cooldowns
-5. **Event Validation** — Use `GetInvokingResource()` only for resource-to-resource calls; it does not authenticate clients
-6. **Server-Side Transactions** — Never handle money/items client-side
+1. **Server Authority** — The server decides; the client only requests.
+2. **Never Trust Parameters** — Validate type, range and existence of every argument. Never accept prices, totals, or rewards from the client.
+3. **Capture `source`** — `local src = source` first; `source` changes after any yield.
+4. **Distance Checks** — Verify distance server-side before allowing interaction.
+5. **Rate Limiting** — Per player, per action.
+6. **`GetInvokingResource()`** — Only filters resource-to-resource calls; it does not authenticate clients.
+7. **Server-Side Transactions** — Money/items change only on the server, with capacity checked before money is taken.
+8. **Server-Side Entities** — Spawn gameplay entities on the server and enable `sv_entityLockdown`.
 
 ## Event Security
 
-> Every server network event can be called by a compromised client. `GetInvokingResource()` is not client authentication. Always validate identity, permissions, state, distance, inventory, and cooldown on the server.
-
+> Every server net event can be called by a compromised client with any arguments. Validate identity, permissions, state, distance, inventory, and cooldown on the server.
 
 ```lua
-RegisterNetEvent('shop:server:purchase', function(itemId, price, quantity)
-    -- 1. Check invoking resource (block cross-resource triggers)
-    if GetInvokingResource() then return end
-    
-    -- 2. Get player and validate existence
-    local xPlayer = ESX.GetPlayerFromId(source)
-    if not xPlayer then return end
-    
-    -- 3. Validate quantity from client
-    quantity = tonumber(quantity) or 1
-    if quantity < 1 or quantity > 10 then return end  -- Sanity limit
-    
-    -- 4. Validate the request from SERVER config
-    local item = Config.ShopItems[itemId]
-    if not item then return end                         -- Invalid item
-    if price ~= item.price then return end               -- Price tampered
-    if item.quantity < quantity then return end          -- Not enough stock
-    
+-- The client sends ONLY what it wants (item + quantity). Never a price.
+ShopStock = ShopStock or {}  -- server-side runtime stock
+
+RegisterNetEvent('shop:server:purchase', function(itemName, quantity)
+    local src = source                                   -- 0. capture before any yield
+    if GetInvokingResource() then return end             -- 1. blocks other resources (not clients!)
+
+    -- 2. Validate types and ranges
+    if type(itemName) ~= 'string' then return end
+    quantity = math.tointeger(quantity)
+    if not quantity or quantity < 1 or quantity > 10 then return end
+
+    -- 3. Price and stock from SERVER state (Config.ShopItems keyed by item name)
+    local item = Config.ShopItems[itemName]
+    if not item then return end
+    local stock = ShopStock[itemName] or item.stock or 0
+    if stock < quantity then return end
     local totalPrice = item.price * quantity
-    
-    -- 5. Check player has funds
-    if xPlayer.getMoney() < totalPrice then
-        TriggerClientEvent('esx:showNotification', source, 'Not enough money!')
-        return
+
+    -- 4. Player and location
+    local xPlayer = ESX.GetPlayerFromId(src)
+    if not xPlayer then return end
+    if #(GetEntityCoords(GetPlayerPed(src)) - Config.ShopCoords) > 5.0 then return end
+
+    -- 5. Capacity first, then money (removeMoney returns false when too poor)
+    if not xPlayer.canCarryItem(itemName, quantity) then
+        return xPlayer.showNotification('Inventory full!', 'error')
     end
-    
-    -- 6. Check inventory space
-    if not xPlayer.canCarryItem(itemId, quantity) then
-        TriggerClientEvent('esx:showNotification', source, 'Inventory full!')
-        return
+    if not xPlayer.removeMoney(totalPrice, 'shop') then
+        return xPlayer.showNotification('Not enough money!', 'error')
     end
-    
-    -- 7. Server-side execution (never trust client to do this)
-    xPlayer.removeMoney(totalPrice)
-    xPlayer.addInventoryItem(itemId, quantity)
+
+    -- 6. Commit
+    ShopStock[itemName] = stock - quantity
+    xPlayer.addInventoryItem(itemName, quantity)
 end)
 ```
 
 ## Distance Check Pattern
 
 ```lua
-RegisterNetEvent('myres:server:loot', function(npcNetId, lootType)
+RegisterNetEvent('myres:server:loot', function(npcNetId)
+    local src = source
     if GetInvokingResource() then return end
-    
-    local playerPed = GetPlayerPed(source)
-    if not playerPed then return end
-    
-    local playerCoords = GetEntityCoords(playerPed)
+    if type(npcNetId) ~= 'number' then return end
+
     local npc = NetworkGetEntityFromNetworkId(npcNetId)
-    if not npc or not DoesEntityExist(npc) then return end
-    
-    local npcCoords = GetEntityCoords(npc)
-    
-    -- Server-side distance validation
-    if #(playerCoords - npcCoords) > 5.0 then
-        print(('[myres] suspicious distance request from %s'):format(source))
+    if npc == 0 or not DoesEntityExist(npc) then return end
+
+    if #(GetEntityCoords(GetPlayerPed(src)) - GetEntityCoords(npc)) > 5.0 then
+        print(('[myres] suspicious distance request from %s'):format(src))
         return
     end
-    
-    -- Process loot
+
+    -- ADAPT: per-entity cooldown / "already looted" state bag, then give loot server-side
 end)
 ```
 
@@ -87,25 +83,26 @@ end)
 ```lua
 local rateLimits = {}
 
-RegisterNetEvent('myres:server:action', function()
-    if GetInvokingResource() then return end
-    
+local function isRateLimited(src, key, cooldownMs)
     local now = GetGameTimer()
-    local playerLimits = rateLimits[source]
-    
-    if playerLimits then
-        if now - playerLimits.lastAction < 1000 then  -- 1s cooldown
-            return  -- Ignore spam
-        end
-    else
-        rateLimits[source] = { lastAction = now }
+    local limits = rateLimits[src]
+    if not limits then
+        limits = {}
+        rateLimits[src] = limits
     end
-    
-    rateLimits[source].lastAction = now
+    if limits[key] and now - limits[key] < cooldownMs then return true end
+    limits[key] = now
+    return false
+end
+
+RegisterNetEvent('myres:server:action', function()
+    local src = source
+    if GetInvokingResource() then return end
+    if isRateLimited(src, 'action', 1000) then return end  -- 1s per player per action
+
     -- Process action
 end)
 
--- Clean up on disconnect
 AddEventHandler('playerDropped', function()
     rateLimits[source] = nil
 end)
@@ -113,115 +110,116 @@ end)
 
 ## Anti-Exploit Techniques
 
-### Vehicle/Ped Spawning Security
+### Entity Lockdown and Server-Side Spawns
+
+```cfg
+# server.cfg (OneSync)
+set sv_entityLockdown strict    # strict: no client-created entities; relaxed: blocks client *script* entities only
+```
+
+Test `strict` first on a staging server: client-side `CreateVehicle`/`CreatePed`/`CreateObject` calls with `isNetwork = true` stop working, so those resources must move spawning to the server.
 
 ```lua
--- Server: validate vehicle spawn requests
-RegisterNetEvent('myres:server:spawnVehicle', function(model)
+-- Server: validate ownership, then spawn server-side
+RegisterNetEvent('myres:server:spawnOwnedVehicle', function(plate)
+    local src = source
     if GetInvokingResource() then return end
-    
-    local player = ESX.GetPlayerFromId(source)
-    if not player then return end
-    
-    -- Check if player owns this vehicle or has permission
-    local playerJob = player.getJob().name
-    if playerJob ~= 'police' and playerJob ~= 'mechanic' then
-        local vehicle = Config.OwnedVehicles[player.getIdentifier()]
-        if not vehicle or vehicle.model ~= model then
-            DropPlayer(source, 'Vehicle spawn exploit')
-            return
-        end
-    end
-    
-    -- Spawn on client
-    TriggerClientEvent('myres:spawnVehicleClient', source, model)
+    if type(plate) ~= 'string' or #plate > 8 then return end
+
+    local xPlayer = ESX.GetPlayerFromId(src)
+    if not xPlayer then return end
+
+    local row = MySQL.single.await('SELECT vehicle FROM owned_vehicles WHERE owner = ? AND plate = ?', { xPlayer.getIdentifier(), plate })
+    if not row then return end  -- not theirs: log it (could also be a UI bug), don't instantly drop
+
+    local props = json.decode(row.vehicle)
+    local ped = GetPlayerPed(src)
+    local coords = GetEntityCoords(ped)
+    local veh = CreateVehicleServerSetter(props.model, 'automobile', coords.x, coords.y, coords.z, GetEntityHeading(ped))
+
+    local timeoutAt = GetGameTimer() + 5000
+    while not DoesEntityExist(veh) and GetGameTimer() < timeoutAt do Wait(0) end
+    if not DoesEntityExist(veh) then return end
+
+    SetVehicleNumberPlateText(veh, plate)
+    Entity(veh).state:set('owner', xPlayer.getIdentifier(), true)
+    -- ADAPT: apply remaining props on the owning client (e.g. via a state bag handler)
 end)
 ```
 
 ### Money Transaction Security
 
 ```lua
--- NEVER trust client-sent amounts!
 RegisterNetEvent('myres:server:payPlayer', function(targetId, amount)
+    local src = source
     if GetInvokingResource() then return end
-    
-    -- Validate amount is positive number
-    amount = tonumber(amount)
+
+    amount = math.tointeger(amount)
     if not amount or amount <= 0 or amount > 100000 then return end
-    
-    local sourcePlayer = ESX.GetPlayerFromId(source)
+
+    targetId = math.tointeger(targetId)
+    if not targetId or targetId == src then return end
+
+    local sourcePlayer = ESX.GetPlayerFromId(src)
     local targetPlayer = ESX.GetPlayerFromId(targetId)
     if not sourcePlayer or not targetPlayer then return end
-    if source == targetId then return end  -- Don't pay yourself
-    
-    -- Optional but recommended: ensure players are near each other
-    local sourceCoords = GetEntityCoords(GetPlayerPed(source))
-    local targetCoords = GetEntityCoords(GetPlayerPed(targetId))
-    if #(sourceCoords - targetCoords) > 5.0 then return end
-    
-    -- Server-side money check and transfer
-    if sourcePlayer.getMoney() >= amount then
-        sourcePlayer.removeMoney(amount)
-        targetPlayer.addMoney(amount)
+
+    if #(GetEntityCoords(GetPlayerPed(src)) - GetEntityCoords(GetPlayerPed(targetId))) > 5.0 then return end
+
+    if sourcePlayer.removeMoney(amount, 'transfer') then
+        targetPlayer.addMoney(amount, 'transfer')
     end
 end)
 ```
 
-### Resource Integrity Check
+### Resource-to-Resource Restriction
 
 ```lua
--- Verify that events are triggered from the correct resource
-RegisterNetEvent('sensitive:server:action', function()
+-- Server events that should only come from specific resources (TriggerEvent on the server)
+AddEventHandler('myres:server:internalGrant', function(src, amount)
     local resource = GetInvokingResource()
-    
-    -- Client-triggered network events have no invoking resource (resource is nil).
-    -- Only apply this guard to server-to-server calls.
-    if resource and resource ~= GetCurrentResourceName() and resource ~= 'trusted-resource' then
-        return
-    end
-    
-    -- A nil resource is a normal client request; validate source and all data here.
-    -- Process only after server-side permission, state, distance, and input checks.
+    if resource ~= 'my_trusted_resource' then return end
+    -- ...
 end)
 ```
+
+Use `AddEventHandler` (not `RegisterNetEvent`) for server-internal events so clients cannot trigger them at all.
 
 ## Common Exploits & Mitigations
 
 | Exploit | Mitigation |
 |---------|-----------|
 | **Event spamming** | Rate limiting per player per event |
-| **Item duplication** | Server-side inventory validation before accepting items |
-| **Teleport hacks** | Server-side distance checks for all interactions |
-| **Money hacks** | Never accept money amounts from client; calculate server-side |
-| **God mode** | Periodic health checks from server |
-| **Weapon hacks** | Give weapons only server-side, validate before giving |
-| **Menu/UI exploits** | Validate all NUI callback data server-side |
-| **Vehicle spawning** | Server-side permission check before spawning |
-| **SQL injection** | Always use `?` placeholders in queries |
-| **Command exploits** | Permission/ACE checks in every command handler |
+| **Item duplication** | Check return values; capacity before money; refund/rollback on failure |
+| **Teleport/remote interaction** | Server-side distance checks for every interaction |
+| **Money hacks** | Never accept amounts/prices from the client; compute server-side |
+| **Spawned entities / props** | Server-side spawns + `sv_entityLockdown` |
+| **Net ID spoofing** | Resolve net IDs server-side; check existence, ownership, distance |
+| **Weapon hacks** | Give weapons only server-side via framework/inventory |
+| **NUI exploits** | Validate all NUI-originated data again on the server |
+| **SQL injection** | Always `?` placeholders (oxmysql) |
+| **Command exploits** | ACE/framework permission checks in every handler |
+| **Internal events** | `AddEventHandler` for server-only events; never `RegisterNetEvent` them |
 
 ## Server Config Security
 
-```lua
--- server.cfg or server config
-sv_maxClients 64                     -- Reasonable limit
-sv_endpointPrivacy true              -- Hide IPs
+```cfg
+# server.cfg
+sv_maxclients 64
+sv_endpointPrivacy true              # hide player IPs from public reports
+set sv_entityLockdown strict         # see above; test before enabling in production
 
-# ACE Permissions (example)
-add_ace group.admin command allow    -- Admin commands
-add_ace group.admin command.car deny -- Restrict specific command
-add_principal identifier.steam:xxx group.admin  -- Assign by Steam ID
+# ACE: grant narrowly (see ace-permissions.md)
+add_ace group.admin command.mycommand allow
+add_principal identifier.license:xxxxxxxx group.admin
 
-# Authentication and build settings
-sv_authMinTrust 2                    -- Increase only if you accept possible player lockouts
-# Set only after verifying the required build for your assets.
-# sv_enforceGameBuild <verified-build-number>
-
-# Note: There is no server convar that reliably blocks client-side mod menus.
-# Use a dedicated anti-cheat resource if you need protection against mod menus.
+# Keep secrets server-only: `set`, never `setr`
+set myresource_discord_webhook "https://discord.com/api/webhooks/..."
 ```
+
+There is no server convar that reliably blocks client-side mod menus; use a dedicated anti-cheat resource for that.
 
 ## Links
 
-- FiveM Security docs: https://docs.fivem.net/docs/developers/server-security/
-- ACE permissions: https://docs.fivem.net/docs/server-manual/server-commands/#access-control-commands
+- FiveM server security: https://docs.fivem.net/docs/developers/server-security/
+- Server commands & convars: https://docs.fivem.net/docs/server-manual/server-commands/
