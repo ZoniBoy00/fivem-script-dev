@@ -128,15 +128,15 @@ Unknown / paid scripts? → references/custom-integrations.md (Config-selected a
 | QBox | `references/qbox-framework.md` (+ `templates/qbox-resource.lua`) |
 | ox_lib UI / callback / zone / command | `references/ox-lib.md` |
 | SQL | `references/oxmysql.md` (+ `templates/oxmysql-queries.lua`) |
-| ox_inventory / ox_target | `references/ox-inventory-target.md` (+ `templates/inventory-hooks.lua`) |
+| ox_inventory (hooks) / ox_target (qb-target migration) | `references/ox-inventory-target.md` (+ `templates/inventory-hooks.lua`) |
 | Shops, doors, vehicles, whitelist | `references/common-patterns.md` |
 | Multi-framework / standalone | `references/standalone-and-bridge.md` |
 | Paid / custom integrations | `references/custom-integrations.md` |
 | NUI | `references/fivem-nui.md` (+ `templates/nui/`) |
-| Exploit protection | `references/fivem-security.md` |
+| Exploit protection, game-event filtering, sandbox | `references/fivem-security.md` |
 | Admin command / ACE | `references/ace-permissions.md` (+ `templates/admin-command.lua`) |
 | OneSync, entities, routing buckets, state bags | `references/onesync.md` |
-| server.cfg | `references/server-cfg.md` |
+| server.cfg, artifacts/txAdmin updates | `references/server-cfg.md` |
 | Debugging, pcall | `references/error-handling.md` |
 | Performance | `references/optimization.md` |
 | Fivemanage, spawnmanager, chat | `references/other-resources.md` |

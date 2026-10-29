@@ -23,15 +23,15 @@ fivem-script-dev/
 │   ├── qbox-framework.md             QBox (bridge, FAQ, QBCore→QBox)
 │   ├── ox-lib.md                     UI, callbacks, zones, commands
 │   ├── oxmysql.md                    Queries, transactions, placeholders
-│   ├── ox-inventory-target.md        Inventory & target exports
+│   ├── ox-inventory-target.md        Inventory/target exports, hooks, qb-target migration
 │   ├── ace-permissions.md            ACE groups, identifiers, allow/deny
 │   ├── common-patterns.md            Shop, doors, vehicles, whitelist
 │   ├── standalone-and-bridge.md      Multi-framework bridge patterns
 │   ├── custom-integrations.md        Paid scripts, custom notify/target
 │   ├── fivem-nui.md                  NUI HTML/JS ↔ FiveM communication
-│   ├── fivem-security.md             Anti-exploit, server authority
+│   ├── fivem-security.md             Anti-exploit, game events, sandbox
 │   ├── onesync.md                    Entity lockdown, server spawns, buckets
-│   ├── server-cfg.md                 Convars, game builds, commands
+│   ├── server-cfg.md                 Convars, artifacts, txAdmin updates
 │   ├── error-handling.md             pcall, debugging, defensive code
 │   ├── other-resources.md            Fivemanage, state bags
 │   ├── documentation-and-versioning.md Official-source and freshness checks

@@ -16,12 +16,36 @@ set steam_webApiKey "YOUR_STEAM_KEY"
 
 Keep licence keys, API keys, webhooks, and database credentials out of version control. Use server-only convars or a deployment secret store.
 
+## Server artifacts and updates
+
+Never hard-code a "current" artifact number from a guide. Query the lifecycle API at the moment you answer:
+
+```text
+https://changelogs-live.fivem.net/api/changelog/versions/linux/server
+https://changelogs-live.fivem.net/api/changelog/versions/win32/server
+```
+
+- Use `recommended` (and its `recommended_download`) for production; `latest` is newer but less tested.
+- Ignore the `critical` and `optional` fields; they are stale and pinned to an old build.
+- Builds reach end of life on a rolling basis (`support_policy_eol` map in the same response). An EOL artifact gets no fixes.
+- Since **2026-10-15** players can no longer connect to servers on artifacts older than the compatibility window (Recommended was 35245 at that cutoff). Upgrade old servers before debugging "can't connect" reports.
+- `sv_replaceExeToSwitchBuilds` is deprecated; remove it from configs.
+- txAdmin ships inside the artifact. Update it by replacing the artifact folder and restarting, not by installing txAdmin separately. Keep `server-data` (resources, `server.cfg`, txData) outside the artifact folder so it survives the swap.
+
+## Network endpoints
+
+```cfg
+endpoint_add_tcp "0.0.0.0:30120"
+endpoint_add_udp "0.0.0.0:30120"   # same port on TCP and UDP; open both in the firewall
+```
+
 ## Game build and OneSync
 
 Choose the game build required by your maps, assets, and dependencies. The current build list changes, so do not copy a build number from an old guide without checking the official documentation.
 
 ```cfg
 # Set this only when a verified build is required by the server's assets.
+# Read at startup only: changing it needs a full server restart, not a resource restart.
 # sv_enforceGameBuild <verified-build-number>
 
 # Valid modes: on, off, legacy. Most servers use on.
@@ -88,9 +112,21 @@ sets banner_connecting "https://example.invalid/banner-connecting.png"
 
 Voice, queue, whitelist, AFK, ping-limit, and detailed logging settings are usually owned by a specific resource (for example pma-voice, a queue resource, txAdmin, or an administration resource). Configure those settings in that resource's documented configuration instead of relying on undocumented `sv_*` variables.
 
+## Security convars
+
+```cfg
+set sv_scriptHookAllowed false   # default; never allow ScriptHook on a public server
+sv_endpointPrivacy true
+# sv_authMinTrust 1..5 (default 1) / sv_authMaxVariance 1..5 (default 5): raise trust or lower variance
+#   to make account-switching harder; verify the effect on legitimate players first
+# rcon_password: leave unset so RCon stays disabled; administer through txAdmin
+```
+
+See `fivem-security.md` for entity lockdown and sandbox permission grants.
+
 ## Deployment checklist
 
-1. Verify game build and OneSync convars against current Cfx.re docs.
+1. Check the artifact against the lifecycle API (`recommended`, not EOL); verify game build and OneSync convars against current Cfx.re docs.
 2. Confirm dependency start order from the exact framework, inventory, database, and voice resource versions in use.
 3. Store secrets with server-only `set` convars or deployment secrets; never use `setr` for secrets.
 4. Test a clean boot, a resource restart, a player join, and a player disconnect.

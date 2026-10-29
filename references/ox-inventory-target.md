@@ -120,6 +120,29 @@ exports.ox_inventory:openInventory('shop', { type = 'ammunation', id = 1 })
 
 Prices and stock live on the server; the client never decides what an item costs.
 
+### Hooks (server)
+
+Hooks run inside an inventory action and can **cancel** it by returning `false`. Verified events: `swapItems`, `buyItem`, `craftItem`, `createItem` (return a table to replace metadata), `openInventory`, `openShop`, `usingItem`.
+
+```lua
+local hookId = exports.ox_inventory:registerHook('swapItems', function(payload)
+    -- payload: source, action, fromInventory, toInventory, fromType, toType, fromSlot, toSlot, count
+    if payload.toType == 'drop' then
+        return false  -- cancel: evidence can't be dropped on the ground
+    end
+end, {
+    itemFilter = { evidence_bag = true },      -- only for these items
+    -- inventoryFilter = { '^police_evidence' }, -- Lua patterns matched against from/to inventory ids
+    -- typeFilter = { player = true },          -- inventory/shop type
+    -- print = true,                            -- log each trigger
+})
+
+-- Hooks are removed automatically when the registering resource stops
+exports.ox_inventory:removeHooks(hookId)  -- one hook; removeHooks() without id removes all of this resource's hooks
+```
+
+Keep hooks fast: a hook taking ≥10 ms logs a warning and delays the action. No HTTP, long queries or `Wait` inside; do follow-up work afterwards.
+
 ### Item Config (`ox_inventory/data/items.lua`)
 
 ```lua
@@ -279,6 +302,32 @@ exports.ox_target:removeGlobalVehicle('myres:hood')
 ```
 
 Remove targets in `onResourceStop` only for things you created outside ox_target's own cleanup (ox_target removes options of a stopped resource automatically).
+
+### Migrating from qb-target
+
+ox_target only ships a `qtarget` compatibility layer, not `qb-target`; port calls by hand:
+
+| qb-target | ox_target |
+|---|---|
+| `AddBoxZone(name, center, length, width, opts, targetOpts)` | `addBoxZone({ coords, size = vec3(width, length, height), rotation, options })` |
+| `AddCircleZone` | `addSphereZone({ coords, radius, options })` |
+| `AddPolyZone` | `addPolyZone({ points, thickness, options })` |
+| `AddTargetEntity` | `addLocalEntity` (client entity) / `addEntity` (net ID) |
+| `AddTargetModel` | `addModel` |
+| `AddGlobalPed` / `Vehicle` / `Object` / `Player` | `addGlobalPed` / `Vehicle` / `Object` / `Player` |
+| `RemoveZone(name)` | `removeZone(id or name)` |
+
+| Option key (qb-target) | ox_target |
+|---|---|
+| `action` | `onSelect` |
+| `type = 'client'`, `event` | `event` |
+| `type = 'server'`, `event` | `serverEvent` |
+| `type = 'command'`, `event` | `command` |
+| `job` / `gang` | `groups` |
+| `item` | `items` |
+| outer `{ options = {...}, distance = 2.5 }` | options array directly; `distance` on **each** option |
+
+Give every option a unique `name` (removal is by name). `job = 'all'` maps to omitting `groups`. Box height is `maxZ - minZ` (third `size` component) with `coords.z` at the midpoint; `heading` becomes `rotation`.
 
 ## Links
 

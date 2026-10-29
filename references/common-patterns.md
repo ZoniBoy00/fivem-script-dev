@@ -132,18 +132,19 @@ for _, door in ipairs(Config.Doors) do
     })
 end
 
--- Apply state changes to the door entity
-local doorsById = {}
-for _, door in ipairs(Config.Doors) do doorsById[door.id] = door end
-
-AddStateBagChangeHandler('', 'global', function(_, key, locked)
-    local doorId = key:match('^door:(.+)$')
-    local door = doorId and doorsById[doorId]
-    if not door then return end
-
+-- Apply state to the door entity: once at start (late joiners get no change event), then on every change
+local function applyDoor(door, locked)
     local entity = GetClosestObjectOfType(door.coords.x, door.coords.y, door.coords.z, 1.5, door.model, false, false, false)
     if entity ~= 0 then FreezeEntityPosition(entity, locked) end
-end)
+end
+
+for _, door in ipairs(Config.Doors) do
+    local key = 'door:' .. door.id
+    applyDoor(door, GlobalState[key])
+    AddStateBagChangeHandler(key, 'global', function(_, _, locked)
+        applyDoor(door, locked)
+    end)
+end
 ```
 
 > For production doors, prefer an existing door resource (e.g. ox_doorlock) that uses the game's door system (`AddDoorToSystem`) instead of freezing entities.

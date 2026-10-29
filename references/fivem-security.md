@@ -185,6 +185,60 @@ end)
 
 Use `AddEventHandler` (not `RegisterNetEvent`) for server-internal events so clients cannot trigger them at all.
 
+### Network Game Events (server-side)
+
+Many cheat menus never touch your resource events; they send native GTA network events (damage, projectiles, weapon removal, explosions). OneSync routes these through the server, where `AddEventHandler` can inspect them and `CancelEvent()` stops them from being applied to other clients.
+
+```lua
+-- SERVER. Engine events: AddEventHandler, never RegisterNetEvent
+local strikes = {}
+
+local function flag(sender, reason)
+    strikes[sender] = (strikes[sender] or 0) + 1
+    print(('[AC] %s (%s): %s [%d]'):format(GetPlayerName(sender) or '?', sender, reason, strikes[sender]))
+    -- act on a threshold (log to staff, then kick), never on a single hit: desync causes false positives
+end
+
+AddEventHandler('removeAllWeaponsEvent', function(sender, data)
+    -- fired when a client strips all weapons from a ped owned by ANOTHER player
+    flag(sender, ('removeAllWeapons on ped %s'):format(data.pedId))
+    CancelEvent()
+end)
+
+AddEventHandler('weaponDamageEvent', function(sender, data)
+    if type(data.weaponDamage) == 'number' and data.weaponDamage > 1000.0 then  -- tune for your weapon meta
+        flag(sender, ('weaponDamage %.1f'):format(data.weaponDamage))
+        CancelEvent()
+    end
+end)
+
+AddEventHandler('playerDropped', function() strikes[source] = nil end)
+```
+
+- `sender` is the server ID of the emitting player. `CancelEvent()` does not stop other server handlers of the same event; `return` after it.
+- Read only documented fields ([server events](https://docs.fivem.net/docs/scripting-reference/events/server-events/)): e.g. `weaponDamageEvent` has `weaponType`, `weaponDamage`, `willKill`, `overrideDefaultDamage`, `hitGlobalId`; `startProjectileEvent` has `weaponHash`, `projectileHash`, `ownerId`; `removeAllWeaponsEvent` has `pedId`.
+- `overrideDefaultDamage` only means "`weaponDamage` is set explicitly instead of inferred from weapon metadata"; it is **not** proof of cheating on its own.
+- See `common-patterns.md` §5 for an `explosionEvent` filter.
+
+### Resource Sandbox
+
+The server Lua runtime is sandboxed ([docs](https://docs.fivem.net/docs/developers/sandbox/)):
+
+- A resource may write only inside its own folder (`SaveResourceFile` included). Writes to other resources, the server root, outside resource folders, `..` traversal and symlinks fail with errno 13. Persist shared data with oxmysql instead.
+- `os.execute` and `io.tmpfile` are blocked; `io.popen` only emulates `ls`/`dir`; `os.getenv('os')` returns only the OS name.
+- `load()` is **not** blocked. A resource that `load()`s code fetched over HTTP is a backdoor until proven otherwise; audit downloaded resources for it.
+- `os.microtime()` / `os.nanotime()` are available for timing hot paths.
+
+```cfg
+# Grants (server.cfg). Give "unsafe" permissions only to resources you have audited.
+add_filesystem_permission resourceA write resourceB
+add_convar_permission resourceA read some_convar_name   # that convar becomes readable ONLY by granted resources
+add_unsafe_worker_permission "resourceName"
+add_unsafe_child_process_permission "resourceName"
+```
+
+A convar is readable by every resource until it gets its first permission entry; after that, resources without a grant can no longer read it.
+
 ## Common Exploits & Mitigations
 
 | Exploit | Mitigation |
@@ -200,6 +254,9 @@ Use `AddEventHandler` (not `RegisterNetEvent`) for server-internal events so cli
 | **SQL injection** | Always `?` placeholders (oxmysql) |
 | **Command exploits** | ACE/framework permission checks in every handler |
 | **Internal events** | `AddEventHandler` for server-only events; never `RegisterNetEvent` them |
+| **Native game events** (weapon strip, damage, explosions) | Filter `removeAllWeaponsEvent`/`weaponDamageEvent`/`explosionEvent` server-side |
+| **Ban evasion** | Key bans on `license:`; store `GetPlayerTokens(src)` as supporting evidence for review, not as an auto-ban key |
+| **Backdoored downloads** | Audit for `load()` of remote code and unsafe sandbox permissions |
 
 ## Server Config Security
 
@@ -207,6 +264,8 @@ Use `AddEventHandler` (not `RegisterNetEvent`) for server-internal events so cli
 # server.cfg
 sv_maxclients 64
 sv_endpointPrivacy true              # hide player IPs from public reports
+set sv_scriptHookAllowed false       # default; never enable on a public server
+# rcon_password                      # leave unset: RCon stays disabled (use txAdmin instead)
 set sv_entityLockdown strict         # see above; test before enabling in production
 
 # ACE: grant narrowly (see ace-permissions.md)
